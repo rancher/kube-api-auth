@@ -3,3 +3,5 @@
 /bin
 /dist
 *.swp
+/kube-api-auth
+/trash.lock

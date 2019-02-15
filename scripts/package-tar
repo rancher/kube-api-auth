@@ -1,0 +1,17 @@
+#!/bin/bash
+
+cd $(dirname $0)/..
+
+. ./scripts/version
+
+mkdir -p dist/artifacts
+
+tar cvzf dist/artifacts/kube-api-auth-${VERSION}-linux-amd64.tar.gz -h bin/kube-api-auth --xform='s!^bin!kube-api-auth-'${VERSION}'-linux-amd64!'
+# tar cvzf dist/artifacts/kube-api-auth-${VERSION}-darwin.tar.gz bin/kube-api-auth-darwin --xform='s!.*!kube-api-auth-'${VERSION}'-darwin/kube-api-auth!'
+
+# W=kube-api-auth-${VERSION}-windows
+# mkdir -p $W
+# trap "rm -rf $W" EXIT
+
+# cp -f bin/kube-api-auth-windows $W/kube-api-auth.exe
+# zip dist/artifacts/kube-api-auth-${VERSION}-windows.zip $W/kube-api-auth.exe

@@ -1,19 +1,23 @@
 kube-api-auth
 ========
 
-## ***FILL THIS OUT WITH A USEFUL DESCRIPTION OF THIS REPO***
+A microservice for user authentication in kubernetes clusters.
 
 ## Building
 
 `make`
 
-
 ## Running
 
 `./bin/kube-api-auth`
 
+## Contact
+For bugs, questions, comments, corrections, suggestions, etc., open an issue in rancher/rancher with a title starting with `[kube-api-auth]`.
+
+Or just [click here](//github.com/rancher/rancher/issues/new?title=%5Bkube-api-auth%5D%20) to create a new issue.
+
 ## License
-Copyright (c) 2018 [Rancher Labs, Inc.](http://rancher.com)
+Copyright (c) 2019 [Rancher Labs, Inc.](http://rancher.com)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
