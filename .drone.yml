@@ -132,6 +132,8 @@ steps:
     - linux/amd64
     - linux/arm64
   when:
+    instance:
+    - drone-publish.rancher.io
     event:
     - tag
 depends_on:
