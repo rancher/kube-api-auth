@@ -8,39 +8,40 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rancher/kube-api-auth/pkg/service/controllers"
 	"github.com/rancher/kube-api-auth/pkg/service/handlers"
-	"github.com/rancher/types/config"
+	"github.com/rancher/norman/pkg/kwrapper/k8s"
+	"github.com/rancher/rancher/pkg/types/config"
+	"github.com/rancher/rancher/pkg/wrangler"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-func Serve(listen, namespace, kubeconfig string) error {
+func Serve(listen, namespace, kubeConfig string) error {
 	log.Info("Starting Rancher Kube-API-Auth service on ", listen)
 
-	var (
-		conf *rest.Config
-		err  error
-	)
-	if kubeconfig != "" {
-		conf, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	} else {
-		conf, err = rest.InClusterConfig()
-	}
+	ctx := context.Background()
+
+	_, clientConfig, err := k8s.GetConfig(ctx, "auto", kubeConfig)
 	if err != nil {
 		return err
 	}
 
-	ctx := context.Background()
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return err
+	}
 
-	apiContext, err := config.NewUserOnlyContext(*conf)
+	wranglerCtx, err := wrangler.NewContext(ctx, clientConfig, restConfig)
+	if err != nil {
+		return err
+	}
+
+	apiContext, err := config.NewUserOnlyContext(wranglerCtx)
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		for {
-			err := controllers.Start(ctx, namespace, apiContext)
-			if err != nil {
+			if err := controllers.Start(ctx, apiContext); err != nil {
 				log.Error(err)
 				time.Sleep(2 * time.Second)
 			} else {

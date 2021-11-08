@@ -12,12 +12,12 @@ import (
 
 	"github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
-	"github.com/rancher/rancher/pkg/controllers/user/clusterauthtoken/common"
+	"github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common"
 	log "github.com/sirupsen/logrus"
 )
 
 func (kube *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
-	return http.HandlerFunc(kube.v1Authenticate)
+	return kube.v1Authenticate
 }
 
 func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +58,6 @@ func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Reque
 	}
 	log.Infof(string(responseJSON))
 	log.Infof("  ...authenticated %s!", accessKey)
-	return
 }
 
 func v1parseBody(r *http.Request) (string, string, error) {
@@ -86,10 +85,10 @@ func v1getBodyAuthnRequest(bytes []byte) (*types.V1AuthnRequest, error) {
 		return nil, err
 	}
 	if authnReq.Kind != kubeapiauth.DefaultAuthnKind {
-		return nil, errors.New("Authentication request kind is not TokenReview")
+		return nil, errors.New("authentication request kind is not TokenReview")
 	}
 	if authnReq.Spec.Token == "" {
-		return nil, errors.New("Authentication request is missing Token")
+		return nil, errors.New("authentication request is missing Token")
 	}
 	return authnReq, nil
 }
@@ -99,7 +98,7 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 	if err != nil {
 		return nil, err
 	}
-	if clusterAuthToken.Enabled != true {
+	if !clusterAuthToken.Enabled {
 		return nil, fmt.Errorf("token is not enabled")
 	}
 
@@ -108,7 +107,7 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 	if err != nil {
 		return nil, err
 	}
-	if clusterUserAttribute.Enabled != true {
+	if !clusterUserAttribute.Enabled {
 		return nil, fmt.Errorf("user is not enabled")
 	}
 
@@ -118,7 +117,7 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 	}
 
 	refreshPeriod := kube.getRefreshPeriod()
-	if refreshPeriod >= time.Duration(0) && clusterUserAttribute.LastRefresh != "" && clusterUserAttribute.NeedsRefresh == false {
+	if refreshPeriod >= time.Duration(0) && clusterUserAttribute.LastRefresh != "" && !clusterUserAttribute.NeedsRefresh {
 		refresh, err := time.Parse(time.RFC3339, clusterUserAttribute.LastRefresh)
 		if err != nil {
 			return nil, err
@@ -141,7 +140,7 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 }
 
 func (kube *KubeAPIHandlers) getRefreshPeriod() time.Duration {
-	const noDefault time.Duration = time.Duration(-1)
+	const noDefault = time.Duration(-1)
 	configMap, err := kube.configMapLister.Get(kube.namespace, common.AuthProviderRefreshDebounceSettingName)
 	if err != nil || configMap.Data == nil {
 		return noDefault

@@ -49,11 +49,11 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
-		cli.Command{
+		{
 			Name:   "create",
 			Action: createToken,
 		},
-		cli.Command{
+		{
 			Name:   "serve",
 			Action: startService,
 			Flags: []cli.Flag{
@@ -81,11 +81,11 @@ func appBefore(c *cli.Context) error {
 	return nil
 }
 
-func createToken(c *cli.Context) error {
+func createToken(_ *cli.Context) error {
 	log.Info("Not yet implemented")
 	return nil
 }
 
-func startService(c *cli.Context) error {
+func startService(_ *cli.Context) error {
 	return service.Serve(appConfig.Listen, appConfig.Namespace, appConfig.Kubeconfig)
 }

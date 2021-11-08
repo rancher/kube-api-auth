@@ -7,7 +7,7 @@ import (
 )
 
 //ReturnHTTPError handles sending out CatalogError response
-func ReturnHTTPError(w http.ResponseWriter, r *http.Request, httpStatus int, errorMessage string) {
+func ReturnHTTPError(w http.ResponseWriter, _ *http.Request, httpStatus int, errorMessage string) {
 	log.Error(errorMessage)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
