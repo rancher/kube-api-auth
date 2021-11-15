@@ -5,16 +5,25 @@ cd $(dirname $0)/..
 
 echo Running validation
 
-PACKAGES="$(go list ./...)"
+if ! command -v golangci-lint; then
+    echo "Skipping validation on ARCH's other than linux amd64"
+    exit
+fi
 
-echo Running: go vet
-go vet ${PACKAGES}
-echo Running: gometalinter
-for i in ${PACKAGES}; do
-    if [ -n "$(gometalinter $i | grep -v 'should have comment.*or be unexported' | tee /dev/stderr)" ]; then
-        failed=true
-    fi
-done
-test -z "$failed"
+echo Running: golangci-lint
+golangci-lint run
+
+echo Tidying up modules
+go mod tidy
+
+echo Verifying modules
+go mod verify
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "Encountered dirty repo!"
+  exit 1
+fi
+
+PACKAGES="$(go list ./...)"
 echo Running: go fmt
 test -z "$(go fmt ${PACKAGES} | tee /dev/stderr)"

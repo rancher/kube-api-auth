@@ -7,9 +7,9 @@ import (
 )
 
 func HealthcheckHandler() http.HandlerFunc {
-	return http.HandlerFunc(healthcheck)
+	return healthcheck
 }
 
-func healthcheck(w http.ResponseWriter, r *http.Request) {
+func healthcheck(_ http.ResponseWriter, _ *http.Request) {
 	log.Info("healthcheck")
 }

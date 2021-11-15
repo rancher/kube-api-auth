@@ -5,3 +5,4 @@
 *.swp
 /kube-api-auth
 /trash.lock
+/.idea

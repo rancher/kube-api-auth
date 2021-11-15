@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	clusterv3 "github.com/rancher/types/apis/cluster.cattle.io/v3"
-	corev1 "github.com/rancher/types/apis/core/v1"
-	"github.com/rancher/types/config"
+	clusterv3 "github.com/rancher/rancher/pkg/generated/norman/cluster.cattle.io/v3"
+	corev1 "github.com/rancher/rancher/pkg/generated/norman/core/v1"
+	"github.com/rancher/rancher/pkg/types/config"
 )
 
 type KubeAPIHandlers struct {
