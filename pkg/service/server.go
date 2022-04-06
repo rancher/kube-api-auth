@@ -39,6 +39,8 @@ func Serve(listen, namespace, kubeConfig string) error {
 		return err
 	}
 
+	router := RouteContext(mux.NewRouter().StrictSlash(true), namespace, apiContext)
+
 	go func() {
 		for {
 			if err := controllers.Start(ctx, apiContext); err != nil {
@@ -50,7 +52,6 @@ func Serve(listen, namespace, kubeConfig string) error {
 		}
 	}()
 
-	router := RouteContext(mux.NewRouter().StrictSlash(true), namespace, apiContext)
 	return http.ListenAndServe(listen, router)
 }
 
