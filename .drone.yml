@@ -9,7 +9,7 @@ platform:
 steps:
 - name: build
   pull: default
-  image: rancher/dapper:v0.4.1
+  image: rancher/dapper:v0.6.0
   commands:
   - dapper ci
   privileged: true
@@ -19,7 +19,7 @@ steps:
 
 - name: stage-binaries
   pull: default
-  image: rancher/dapper:v0.4.1
+  image: rancher/dapper:v0.6.0
   commands:
   - "cp -r ./bin/* ./package/"
   when:
@@ -67,7 +67,7 @@ platform:
 steps:
 - name: build
   pull: default
-  image: rancher/dapper:v0.4.1
+  image: rancher/dapper:v0.6.0
   commands:
   - dapper ci
   privileged: true
@@ -77,7 +77,7 @@ steps:
 
 - name: stage-binaries
   pull: default
-  image: rancher/dapper:v0.4.1
+  image: rancher/dapper:v0.6.0
   commands:
   - "cp -r ./bin/* ./package/"
   when:

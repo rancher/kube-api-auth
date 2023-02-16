@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/rancher/kube-api-auth/pkg"
+	kubeapiauth "github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/service"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"

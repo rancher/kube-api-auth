@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/rancher/kube-api-auth/pkg"
+	kubeapiauth "github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
 	"github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common"
 	log "github.com/sirupsen/logrus"
@@ -61,7 +61,7 @@ func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Reque
 }
 
 func v1parseBody(r *http.Request) (string, string, error) {
-	bytes, err := ioutil.ReadAll(r.Body)
+	bytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		return "", "", err
 	}
