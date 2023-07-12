@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/bci-micro:15.3.16.3
+FROM registry.suse.com/bci/bci-micro:15.5
 
 ARG user=kubeapiauth
 
