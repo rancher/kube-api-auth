@@ -1,6 +1,6 @@
 module github.com/rancher/kube-api-auth
 
-go 1.20
+go 1.21
 
 // after a release version > 1.1.1, remove this line and update the version in the require block with the latest tag
 replace github.com/rancher/wrangler v1.1.1 => github.com/rancher/wrangler v1.1.1-0.20230705223603-201b4da5bdaf
