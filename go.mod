@@ -12,10 +12,10 @@ replace (
 	github.com/knative/pkg => github.com/rancher/pkg v0.0.0-20190514055449-b30ab9de040e
 
 	github.com/rancher/lasso => github.com/rancher/lasso v0.0.0-20230629200414-8a54b32e6792
-	github.com/rancher/norman => github.com/rancher/norman v0.0.0-20230831051043-df267d4b7b38
-	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20230914013242-96634e169014
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20230914013242-96634e169014
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20230914013242-96634e169014
+	github.com/rancher/norman => github.com/rancher/norman v0.0.0-20240205154641-a6a6cf569608
+	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20240205190724-2f7113dc32d4
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20240205190724-2f7113dc32d4
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20240205190724-2f7113dc32d4
 
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.35.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.1
@@ -59,8 +59,8 @@ replace (
 
 require (
 	github.com/gorilla/mux v1.8.0
-	github.com/rancher/norman v0.0.0-20230831160711-5de27f66385d
-	github.com/rancher/rancher v0.0.0-20230914013242-96634e169014
+	github.com/rancher/norman v0.0.0-20240205154641-a6a6cf569608
+	github.com/rancher/rancher v0.0.0-20240205190724-2f7113dc32d4
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.14
 )
@@ -172,19 +172,19 @@ require (
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
-	github.com/rancher/aks-operator v1.2.0-rc2 // indirect
-	github.com/rancher/apiserver v0.0.0-20230831052300-120e615b17ba // indirect
-	github.com/rancher/dynamiclistener v0.3.6-rc3-deadlock-fix-revert // indirect
-	github.com/rancher/eks-operator v1.3.0-rc2 // indirect
-	github.com/rancher/fleet/pkg/apis v0.0.0-20230901075223-437edb7091f5 // indirect
-	github.com/rancher/gke-operator v1.2.0-rc1 // indirect
+	github.com/rancher/aks-operator v1.2.0 // indirect
+	github.com/rancher/apiserver v0.0.0-20240205154815-a3b9e3721c1b // indirect
+	github.com/rancher/dynamiclistener v0.3.6 // indirect
+	github.com/rancher/eks-operator v1.3.0 // indirect
+	github.com/rancher/fleet/pkg/apis v0.0.0-20231017140638-93432f288e79 // indirect
+	github.com/rancher/gke-operator v1.2.0 // indirect
 	github.com/rancher/kubernetes-provider-detector v0.1.5 // indirect
 	github.com/rancher/lasso v0.0.0-20230830164424-d684fdeb6f29 // indirect
 	github.com/rancher/rancher/pkg/apis v0.0.0 // indirect
 	github.com/rancher/rancher/pkg/client v0.0.0 // indirect
 	github.com/rancher/remotedialer v0.3.0 // indirect
-	github.com/rancher/rke v1.5.0-rc5 // indirect
-	github.com/rancher/steve v0.0.0-20230901044548-5df31b9c15cc // indirect
+	github.com/rancher/rke v1.5.3 // indirect
+	github.com/rancher/steve v0.0.0-20231016202603-993540401906 // indirect
 	github.com/rancher/wrangler v1.1.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rubenv/sql-migrate v1.3.1 // indirect
@@ -229,7 +229,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.9.0 // indirect
 	k8s.io/api v0.27.10 // indirect
-	k8s.io/apiextensions-apiserver v0.27.4 // indirect
+	k8s.io/apiextensions-apiserver v0.27.5 // indirect
 	k8s.io/apimachinery v0.27.10 // indirect
 	k8s.io/apiserver v0.27.10 // indirect
 	k8s.io/cli-runtime v0.27.10 // indirect
@@ -241,8 +241,8 @@ require (
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-aggregator v0.27.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20230530175149-33f04d5d6b58 // indirect
-	k8s.io/kubectl v0.27.4 // indirect
-	k8s.io/kubernetes v1.27.4 // indirect
+	k8s.io/kubectl v0.27.6 // indirect
+	k8s.io/kubernetes v1.27.6 // indirect
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106 // indirect
 	oras.land/oras-go v1.2.3 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.2 // indirect
