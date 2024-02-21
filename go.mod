@@ -24,6 +24,8 @@ replace (
 	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.10.0
 	go.opentelemetry.io/proto/otlp => go.opentelemetry.io/proto/otlp v0.19.0
 
+	golang.org/x/crypto => golang.org/x/crypto v0.17.0
+
 	helm.sh/helm/v3 => github.com/rancher/helm/v3 v3.12.3-rancher1
 
 	k8s.io/api => k8s.io/api v0.27.10
