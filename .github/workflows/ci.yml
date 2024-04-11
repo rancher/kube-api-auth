@@ -1,0 +1,107 @@
+## (5b) Pin to commits, not tags
+
+name: CI Build and Check
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  IMAGE: rancher/kube-api-auth
+
+permissions:
+  contents: read
+  security-events: write # upload Trivy Sarif results
+
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get Sources
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: false
+
+    - name: Validate the sources
+      run: |
+        ./scripts/validate
+        # Except for linting. That is done through the proper GH action
+
+    - name: Lint sources
+      uses: golangci/golangci-lint-action@v4
+
+    - name: Test
+      run: ./scripts/test
+
+  build:
+    runs-on: ubuntu-latest
+    needs:
+      - linter
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    steps:
+    - name: Prepare Matrix Instance
+      run: |
+        platform=${{ matrix.platform }}
+        export GOOS="$(echo ${platform}   | sed -e 's|/.*||')"
+        export GOARCH="$(echo ${platform} | sed -e 's|.*/||')"
+        export ARCH="$GOARCH"
+        echo "GOOS=$GOOS"     >> $GITHUB_ENV
+        echo "GOARCH=$GOARCH" >> $GITHUB_ENV
+        echo "ARCH=$ARCH"     >> $GITHUB_ENV
+
+    - name: Get Sources
+      uses: actions/checkout@v3
+
+    - name: Determine Tag
+      id: get-TAG
+      run: |
+        export TAG=g$(git describe --always)
+        echo "TAG=$TAG"
+        echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: false
+
+    - name: Build
+      run: |
+        ./scripts/build
+        echo Stage binary for packaging step
+        cp -rv ./bin/* ./package/
+
+    - name: Package up into container image
+      uses: docker/build-push-action@v5
+      with:
+        context: package
+        push: false
+        tags: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
+        file: package/Dockerfile
+
+    - name: Scan for security vulnerabilities using Trivy
+      uses: aquasecurity/trivy-action@0.18.0
+      with:
+        image-ref: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
