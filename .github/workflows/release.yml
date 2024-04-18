@@ -3,9 +3,7 @@
 name: CI Build And Publish Release
 
 on:
-  push:
-    branches:
-      - 'ak-**-test'
+  pull_request:
 
 permissions:
   contents: read
