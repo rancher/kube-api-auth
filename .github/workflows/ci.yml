@@ -46,19 +46,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
+        os:
+          - linux
+        arch:
+          - amd64
+          - arm64
     steps:
     - name: Prepare Matrix Instance
       run: |
-        platform=${{ matrix.platform }}
-        export GOOS="$(echo ${platform}   | sed -e 's|/.*||')"
-        export GOARCH="$(echo ${platform} | sed -e 's|.*/||')"
-        export ARCH="$GOARCH"
-        echo "GOOS=$GOOS"     >> $GITHUB_ENV
-        echo "GOARCH=$GOARCH" >> $GITHUB_ENV
-        echo "ARCH=$ARCH"     >> $GITHUB_ENV
+        echo "GOOS=${{ matrix.os }}"
+        echo "GOOS=${{ matrix.os }}"     >> $GITHUB_ENV
+        echo "GOARCH=${{ matrix.arch }}"
+        echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "ARCH=${{ matrix.arch }}"
+        echo "ARCH=${{ matrix.arch }}"   >> $GITHUB_ENV
 
     - name: Get Sources
       uses: actions/checkout@v3

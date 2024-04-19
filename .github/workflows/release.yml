@@ -22,14 +22,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
+        os:
+          - linux
+        arch:
+          - amd64
+          - arm64
     steps:
       - name: Prepare Matrix Instance
         run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=${{ matrix.os }}-${{ matrix.arch }}"
+          echo "PLATFORM_PAIR=${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
+          echo "GOOS=${{ matrix.os }}"
+          echo "GOOS=${{ matrix.os }}"     >> $GITHUB_ENV
+          echo "GOARCH=${{ matrix.arch }}"
+          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
+          echo "ARCH=${{ matrix.arch }}"
+          echo "ARCH=${{ matrix.arch }}"   >> $GITHUB_ENV
 
       - name: Retrieve Docker Hub Credentials From Vault
         uses: rancher-eio/read-vault-secrets@main
@@ -67,10 +75,6 @@ jobs:
 
       - name: Build and stage
         run: |
-          case "${{ matrix.platform }}" in
-          */arm64) export ARCH=arm64 ; export GOARCH=arm64 ;;
-          *)       export ARCH=amd64 ; export GOARCH=amd64 ;;
-          esac
           ./scripts/build
           # Stage binary for packaging step
           cp -r ./bin/* ./package/
@@ -81,7 +85,7 @@ jobs:
         with:
           context: package
           file: package/Dockerfile
-          platforms: ${{ matrix.platform }}
+          platforms: ${{ matrix.os }}/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
