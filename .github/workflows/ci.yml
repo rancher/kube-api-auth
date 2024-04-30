@@ -1,5 +1,3 @@
-## (5b) Pin to commits, not tags
-
 name: CI Build and Check
 
 on:
@@ -67,7 +65,7 @@ jobs:
     - name: Determine Tag
       id: get-TAG
       run: |
-        export TAG=g$(git describe --always)
+        export TAG=$(git describe --always)
         echo "TAG=$TAG"
         echo "TAG=$TAG" >> "$GITHUB_ENV"
 

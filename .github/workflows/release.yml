@@ -1,5 +1,3 @@
-## (5b) Pin to commits, not tags
-
 name: CI Build And Publish Release
 
 on:
@@ -70,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: 'go.mod'
           cache: false
 
       - name: Build and stage
