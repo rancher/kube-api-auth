@@ -32,7 +32,7 @@ jobs:
         # Except for linting. That is done through the proper GH action
 
     - name: Lint sources
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v6
 
     - name: Test
       run: ./scripts/test
