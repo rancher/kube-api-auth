@@ -7,8 +7,8 @@ toolchain go1.22.5
 replace (
 	github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible // oras dep requires a replace is set
 
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20240724211404-dd23578d3e34
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20240724211404-dd23578d3e34
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20240730202829-9e0cc54e7e3a
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20240730202829-9e0cc54e7e3a
 
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.44.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0
@@ -55,7 +55,7 @@ replace (
 require (
 	github.com/gorilla/mux v1.8.1
 	github.com/rancher/norman v0.0.0-20240708202514-a0127673d1b9
-	github.com/rancher/rancher v0.0.0-20240724211404-dd23578d3e34
+	github.com/rancher/rancher v0.0.0-20240730202829-9e0cc54e7e3a
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.14
 )
@@ -172,7 +172,7 @@ require (
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rancher/aks-operator v1.9.0 // indirect
 	github.com/rancher/apiserver v0.0.0-20240708202538-39a6f2535146 // indirect
-	github.com/rancher/dynamiclistener v0.6.0-rc2 // indirect
+	github.com/rancher/dynamiclistener v0.6.0 // indirect
 	github.com/rancher/eks-operator v1.9.0 // indirect
 	github.com/rancher/fleet/pkg/apis v0.10.0 // indirect
 	github.com/rancher/gke-operator v1.9.0 // indirect
