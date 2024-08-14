@@ -58,6 +58,7 @@ require (
 	github.com/rancher/rancher v0.0.0-20240730202829-9e0cc54e7e3a
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.14
+	k8s.io/apimachinery v0.30.3
 )
 
 require (
@@ -226,7 +227,6 @@ require (
 	helm.sh/helm/v3 v3.15.1 // indirect
 	k8s.io/api v0.30.3 // indirect
 	k8s.io/apiextensions-apiserver v0.30.1 // indirect
-	k8s.io/apimachinery v0.30.3 // indirect
 	k8s.io/apiserver v0.30.3 // indirect
 	k8s.io/cli-runtime v0.30.3 // indirect
 	k8s.io/client-go v12.0.0+incompatible // indirect
