@@ -14,7 +14,13 @@ import (
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
 	"github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common"
 	log "github.com/sirupsen/logrus"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ktypes "k8s.io/apimachinery/pkg/types"
 )
+
+// Do not record lastUsedAt at the full possible precision
+const lastUsedAtGranularity = time.Minute
 
 func (kube *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
 	return kube.v1Authenticate
@@ -136,7 +142,79 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 		Groups:   clusterUserAttribute.Groups,
 	}
 
+	// Manage LastUsedAt
+
+	// Check for token client supporting Patch method
+	if kube.tokenWClient == nil {
+		log.Errorf("ClusterAuthToken %v, lastUsedAt: skipping update, no wrangler client",
+			clusterAuthToken.ObjectMeta.Name)
+		return response, nil
+	}
+
+	now := time.Now().Truncate(lastUsedAtGranularity)
+	log.Debugf("ClusterAuthToken %v, lastUsedAt: now is %v", clusterAuthToken.ObjectMeta.Name, now)
+
+	// TODO XXX How do we distinguish between an uninitialized CAT supporting LUA, versus
+	// TODO XXX an old CAT not supporting LUA ?
+	// TODO XXX Both should appear here as `clusterAuthToken.LastUsedAt == nil`.
+
+	// TODO XXX Maybe creation of a CAT supporting LUA should set an initial LUA ?
+	// TODO XXX Where would that happen ?
+
+	if clusterAuthToken.LastUsedAt != nil {
+		lastRecorded := clusterAuthToken.LastUsedAt.Time.Truncate(lastUsedAtGranularity)
+		log.Debugf("ClusterAuthToken %v, lastUsedAt: recorded %v",
+			clusterAuthToken.ObjectMeta.Name, lastRecorded)
+
+		// throttle ... skip update if the recorded/known last use is not
+		// strictly in the past, relative to us. IOW if the token is already
+		// at the minute we want, or even ahead, then we have nothing to do.
+
+		if now.Before(lastRecorded) || now.Equal(lastRecorded) {
+			log.Debugf("ClusterAuthToken %v, lastUsedAt: now <= recorded, skipped update",
+				clusterAuthToken.ObjectMeta.Name)
+			return response, nil
+		}
+	}
+
+	// green light for patch
+
+	lastUsed := metav1.NewTime(now)
+	patch, err := makeLastUsedPatch(lastUsed)
+	if err != nil {
+		// Just logging this error, not reporting it. Operation was ok, do not wish to force a retry.
+		// IOW the field lastUsedAt is updated only with best effort.
+		log.Errorf("ClusterAuthToken %v, lastUsedAt: patch creation failed: %v",
+			clusterAuthToken.ObjectMeta.Name, err)
+		return response, nil
+	}
+
+	_, err = kube.tokenWClient.Patch(clusterAuthToken.ObjectMeta.Name, ktypes.JSONPatchType, patch)
+	if err != nil {
+		// Just logging this error, not reporting it. Operation was ok, do not wish to force a retry.
+		// IOW the field lastUsedAt is updated only with best effort.
+		log.Errorf("ClusterAuthToken %v, lastUsedAt: patch application failed: %v",
+			clusterAuthToken.ObjectMeta.Name, err)
+		return response, nil
+	}
+
+	log.Debugf("ClusterAuthToken %v, lastUsedAt: successfully completed update",
+		clusterAuthToken.ObjectMeta.Name)
+
 	return response, nil
+}
+
+func makeLastUsedPatch(lu metav1.Time) ([]byte, error) {
+	operations := []struct {
+		Op    string      `json:"op"`
+		Path  string      `json:"path"`
+		Value metav1.Time `json:"value"`
+	}{{
+		Op:    "replace",
+		Path:  "/lastUsedAt",
+		Value: lu,
+	}}
+	return json.Marshal(operations)
 }
 
 func (kube *KubeAPIHandlers) getRefreshPeriod() time.Duration {
