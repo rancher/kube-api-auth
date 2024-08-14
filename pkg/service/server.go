@@ -39,7 +39,7 @@ func Serve(listen, namespace, kubeConfig string) error {
 		return err
 	}
 
-	router := RouteContext(mux.NewRouter().StrictSlash(true), namespace, apiContext)
+	router := RouteContext(mux.NewRouter().StrictSlash(true), namespace, apiContext, wranglerCtx)
 
 	go func() {
 		for {
@@ -55,9 +55,9 @@ func Serve(listen, namespace, kubeConfig string) error {
 	return http.ListenAndServe(listen, router)
 }
 
-func RouteContext(router *mux.Router, namespace string, apiContext *config.UserOnlyContext) *mux.Router {
+func RouteContext(router *mux.Router, namespace string, apiContext *config.UserOnlyContext, wranglerCtx *wrangler.Context) *mux.Router {
 	// API framework routes
-	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, apiContext)
+	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, apiContext, wranglerCtx)
 	// Healthcheck endpoint
 	router.Methods("GET").Path("/healthcheck").Handler(handlers.HealthcheckHandler())
 	// V1 Authenticate endpoint
