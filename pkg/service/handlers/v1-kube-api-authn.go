@@ -62,7 +62,11 @@ func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Reque
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
 		return
 	}
+<<<<<<< HEAD
 	log.Info(string(responseJSON))
+=======
+	log.Infof("  json: %s", string(responseJSON))
+>>>>>>> 3e9854e (fixup: linter error)
 	log.Infof("  ...authenticated %s!", accessKey)
 }
 
