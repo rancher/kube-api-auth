@@ -154,27 +154,45 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 	now := time.Now().Truncate(lastUsedAtGranularity)
 	log.Debugf("ClusterAuthToken %v, lastUsedAt: now is %v", clusterAuthToken.ObjectMeta.Name, now)
 
-	// TODO XXX How do we distinguish between an uninitialized CAT supporting LUA, versus
-	// TODO XXX an old CAT not supporting LUA ?
-	// TODO XXX Both should appear here as `clusterAuthToken.LastUsedAt == nil`.
+	// __WARNING__
+	//	kube-api-auth (KAA) is unversioned, the same sources are used across all Rancher
+	//	versions making use of the KAA executable. This means that we have to be careful
+	//	about the data we are getting, and writing.
+	//
+	//      Even with knowledge of the `ClusterAuthToken.LastUsedAt` (CAT.LUA) field compiled
+	//      into KAA we may run in an environment where this field does not exist.
+	//
+	//      To ensure that the field is read and written if and only if the field is actually
+	//      supported the functions `createClusterAuthToken` [1] and `NewClusterAuthToken` [2]
+	//      were modified to ensure that CAT.LUA is properly initialized to a sensible value in
+	//      all newly created CATs.
+	//
+	//      With this in place the check `clusterAuthToken.LastUsedAt == nil` below is a proper
+	//      distinguisher between CATs supporting LUA and older CATs without the field.
+	//
+	// [1] `rancher/pkg/controllers/managementuser/clusterauthtoken/token.go`
+	// [2] `rancher/pkg/controllers/managementuser/clusterauthtoken/common/user.go`
 
-	// TODO XXX Maybe creation of a CAT supporting LUA should set an initial LUA ?
-	// TODO XXX Where would that happen ?
+	if clusterAuthToken.LastUsedAt == nil {
+		// CAT does not support LUA. Do not touch the field.
+		return response, nil
+	}
 
-	if clusterAuthToken.LastUsedAt != nil {
-		lastRecorded := clusterAuthToken.LastUsedAt.Time.Truncate(lastUsedAtGranularity)
-		log.Debugf("ClusterAuthToken %v, lastUsedAt: recorded %v",
-			clusterAuthToken.ObjectMeta.Name, lastRecorded)
+	// CAT supports LUA. See if we should update it, and if yes, perform the necessary patching.
 
-		// throttle ... skip update if the recorded/known last use is not
-		// strictly in the past, relative to us. IOW if the token is already
-		// at the minute we want, or even ahead, then we have nothing to do.
+	lastRecorded := clusterAuthToken.LastUsedAt.Time.Truncate(lastUsedAtGranularity)
+	log.Debugf("ClusterAuthToken %v, lastUsedAt: recorded %v",
+		clusterAuthToken.ObjectMeta.Name, lastRecorded)
 
-		if now.Before(lastRecorded) || now.Equal(lastRecorded) {
-			log.Debugf("ClusterAuthToken %v, lastUsedAt: now <= recorded, skipped update",
-				clusterAuthToken.ObjectMeta.Name)
-			return response, nil
-		}
+	// throttle ... skip update if the recorded/known last use is not strictly in the past,
+	// relative to us. IOW if the token is already at the minute we want, or even ahead, then we
+	// have nothing to do.
+
+	if now.Before(lastRecorded) || now.Equal(lastRecorded) {
+		log.Debugf("ClusterAuthToken %v, lastUsedAt: now <= recorded, skipped update",
+			clusterAuthToken.ObjectMeta.Name)
+
+		return response, nil
 	}
 
 	// green light for patch
@@ -182,19 +200,27 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 	lastUsed := metav1.NewTime(now)
 	patch, err := makeLastUsedPatch(lastUsed)
 	if err != nil {
-		// Just logging this error, not reporting it. Operation was ok, do not wish to force a retry.
+		// Failed to create a proper patch.
+		// Just logging this error, not reporting it.
+		// The actual operation was ok and we do not wish to force a retry.
 		// IOW the field lastUsedAt is updated only with best effort.
+
 		log.Errorf("ClusterAuthToken %v, lastUsedAt: patch creation failed: %v",
 			clusterAuthToken.ObjectMeta.Name, err)
+
 		return response, nil
 	}
 
 	_, err = kube.tokenWClient.Patch(clusterAuthToken.ObjectMeta.Name, ktypes.JSONPatchType, patch)
 	if err != nil {
-		// Just logging this error, not reporting it. Operation was ok, do not wish to force a retry.
+		// Failed to apply the patch
+		// Just logging this error, not reporting it.
+		// The actual operation was ok and we do not wish to force a retry.
 		// IOW the field lastUsedAt is updated only with best effort.
+
 		log.Errorf("ClusterAuthToken %v, lastUsedAt: patch application failed: %v",
 			clusterAuthToken.ObjectMeta.Name, err)
+
 		return response, nil
 	}
 
