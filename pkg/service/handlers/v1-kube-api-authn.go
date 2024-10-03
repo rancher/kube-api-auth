@@ -56,7 +56,7 @@ func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Reque
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
 		return
 	}
-	log.Infof(string(responseJSON))
+	log.Info(string(responseJSON))
 	log.Infof("  ...authenticated %s!", accessKey)
 }
 
