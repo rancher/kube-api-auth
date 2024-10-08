@@ -14,13 +14,14 @@ import (
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
 	"github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (kube *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
-	return kube.v1Authenticate
+func (h *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
+	return h.v1Authenticate
 }
 
-func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request) {
+func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request) {
 	log.Info("Processing v1Authenticate request...")
 
 	response := types.V1AuthnResponse{
@@ -38,7 +39,7 @@ func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Reque
 	}
 	log.Infof("  ...looking up token for %s", accessKey)
 
-	user, err := kube.v1getAndVerifyUser(accessKey, secretKey)
+	user, err := h.v1getAndVerifyUser(accessKey, secretKey)
 	if err != nil {
 		ReturnHTTPError(w, r, http.StatusUnauthorized, fmt.Sprintf("%v", err))
 		return
@@ -56,7 +57,7 @@ func (kube *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Reque
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
 		return
 	}
-	log.Info(string(responseJSON))
+	log.Infof("  json: %s", string(responseJSON))
 	log.Infof("  ...authenticated %s!", accessKey)
 }
 
@@ -65,6 +66,7 @@ func v1parseBody(r *http.Request) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	authnReq, err := v1getBodyAuthnRequest(bytes)
 	if err != nil {
 		return "", "", err
@@ -74,8 +76,10 @@ func v1parseBody(r *http.Request) (string, string, error) {
 	if len(tokenParts) != 2 {
 		return "", "", fmt.Errorf("found %d parts of token", len(tokenParts))
 	}
+
 	accessKey := tokenParts[0]
 	secretKey := tokenParts[1]
+
 	return accessKey, secretKey, nil
 }
 
@@ -84,17 +88,20 @@ func v1getBodyAuthnRequest(bytes []byte) (*types.V1AuthnRequest, error) {
 	if err := json.Unmarshal(bytes, authnReq); err != nil {
 		return nil, err
 	}
+
 	if authnReq.Kind != kubeapiauth.DefaultAuthnKind {
 		return nil, errors.New("authentication request kind is not TokenReview")
 	}
+
 	if authnReq.Spec.Token == "" {
 		return nil, errors.New("authentication request is missing Token")
 	}
+
 	return authnReq, nil
 }
 
-func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*types.V1AuthnResponseUser, error) {
-	clusterAuthToken, err := kube.clusterAuthTokensLister.Get(kube.namespace, accessKey)
+func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*types.V1AuthnResponseUser, error) {
+	clusterAuthToken, err := h.clusterAuthTokensLister.Get(h.namespace, accessKey)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +110,7 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 	}
 
 	userName := clusterAuthToken.UserName
-	clusterUserAttribute, err := kube.clusterUserAttributeLister.Get(kube.namespace, userName)
+	clusterUserAttribute, err := h.clusterUserAttributeLister.Get(h.namespace, userName)
 	if err != nil {
 		return nil, err
 	}
@@ -116,42 +123,67 @@ func (kube *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*t
 		return nil, err
 	}
 
-	refreshPeriod := kube.getRefreshPeriod()
-	if refreshPeriod >= time.Duration(0) && clusterUserAttribute.LastRefresh != "" && !clusterUserAttribute.NeedsRefresh {
+	now := time.Now()
+	var shouldUpdate bool
+
+	refreshPeriod := h.getRefreshPeriod()
+	if refreshPeriod >= 0 && clusterUserAttribute.LastRefresh != "" && !clusterUserAttribute.NeedsRefresh {
 		refresh, err := time.Parse(time.RFC3339, clusterUserAttribute.LastRefresh)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error parsing lastRefresh: %w", err)
 		}
-		if refresh.Add(refreshPeriod).Before(time.Now()) {
+
+		if refresh.Add(refreshPeriod).Before(now) {
 			clusterUserAttribute.NeedsRefresh = true
-			_, err := kube.clusterUserAttribute.Update(clusterUserAttribute)
-			if err != nil {
-				return nil, err
+			shouldUpdate = true
+		}
+	}
+
+	func() { // Deliberately using an anonymous function with an early return here to simplify the logic.
+		now = now.Truncate(time.Second) // Use the second precision.
+
+		if clusterAuthToken.LastUsedAt != nil {
+			if now.Equal(clusterAuthToken.LastUsedAt.Time.Truncate(time.Second)) {
+				// Throttle subsecond updates.
+				return
 			}
 		}
+
+		lastUsedAt := metav1.NewTime(now)
+		clusterAuthToken.LastUsedAt = &lastUsedAt
+		shouldUpdate = true
+	}()
+
+	if shouldUpdate {
+		_, err = h.clusterAuthTokens.Update(clusterAuthToken)
+		if err != nil {
+			return nil, fmt.Errorf("error updating clusterAuthToken %s: %w", clusterAuthToken.Name, err)
+		}
 	}
 
-	response := &types.V1AuthnResponseUser{
+	return &types.V1AuthnResponseUser{
 		UserName: userName,
 		Groups:   clusterUserAttribute.Groups,
-	}
-
-	return response, nil
+	}, nil
 }
 
-func (kube *KubeAPIHandlers) getRefreshPeriod() time.Duration {
+func (h *KubeAPIHandlers) getRefreshPeriod() time.Duration {
 	const noDefault = time.Duration(-1)
-	configMap, err := kube.configMapLister.Get(kube.namespace, common.AuthProviderRefreshDebounceSettingName)
+
+	configMap, err := h.configMapLister.Get(h.namespace, common.AuthProviderRefreshDebounceSettingName)
 	if err != nil || configMap.Data == nil {
 		return noDefault
 	}
+
 	refreshStr := configMap.Data["value"]
 	if refreshStr == "" {
 		return noDefault
 	}
+
 	refreshSeconds, err := strconv.ParseInt(refreshStr, 10, 64)
 	if err != nil {
 		return noDefault
 	}
+
 	return time.Duration(refreshSeconds) * time.Second
 }
