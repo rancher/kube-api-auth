@@ -124,8 +124,6 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 	}
 
 	now := time.Now()
-	var shouldUpdate bool
-
 	refreshPeriod := h.getRefreshPeriod()
 	if refreshPeriod >= 0 && clusterUserAttribute.LastRefresh != "" && !clusterUserAttribute.NeedsRefresh {
 		refresh, err := time.Parse(time.RFC3339, clusterUserAttribute.LastRefresh)
@@ -135,15 +133,18 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 
 		if refresh.Add(refreshPeriod).Before(now) {
 			clusterUserAttribute.NeedsRefresh = true
-			shouldUpdate = true
+			if _, err := h.clusterUserAttribute.Update(clusterUserAttribute); err != nil {
+				return nil, fmt.Errorf("error updating clusterUserAttribute %s: %w", clusterUserAttribute.Name, err)
+			}
 		}
 	}
 
-	func() { // Deliberately using an anonymous function with an early return here to simplify the logic.
-		now = now.Truncate(time.Second) // Use the second precision.
+	func() { // Using an anonymous function with an early return here to simplify the logic.
+		precision := time.Second
+		now = now.Truncate(precision)
 
 		if clusterAuthToken.LastUsedAt != nil {
-			if now.Equal(clusterAuthToken.LastUsedAt.Time.Truncate(time.Second)) {
+			if now.Equal(clusterAuthToken.LastUsedAt.Time.Truncate(precision)) {
 				// Throttle subsecond updates.
 				return
 			}
@@ -151,15 +152,12 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 
 		lastUsedAt := metav1.NewTime(now)
 		clusterAuthToken.LastUsedAt = &lastUsedAt
-		shouldUpdate = true
-	}()
 
-	if shouldUpdate {
-		_, err = h.clusterAuthTokens.Update(clusterAuthToken)
-		if err != nil {
-			return nil, fmt.Errorf("error updating clusterAuthToken %s: %w", clusterAuthToken.Name, err)
+		if _, err = h.clusterAuthTokens.Update(clusterAuthToken); err != nil {
+			// Best-effort update. Don't retry or fail the request.
+			log.Errorf("error updating clusterAuthToken %s: %s", clusterAuthToken.Name, err)
 		}
-	}
+	}()
 
 	return &types.V1AuthnResponseUser{
 		UserName: userName,
