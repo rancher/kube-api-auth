@@ -11,4 +11,4 @@ COPY kube-api-auth /usr/bin/
 
 USER $user
 
-CMD kube-api-auth serve
+CMD ["kube-api-auth", "serve"]
