@@ -2,7 +2,7 @@ module github.com/rancher/kube-api-auth
 
 go 1.23.4
 
-toolchain go1.23.6
+toolchain go1.23.7
 
 replace (
 	github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible // oras dep requires a replace is set
