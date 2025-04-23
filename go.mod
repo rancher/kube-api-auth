@@ -8,10 +8,10 @@ replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
 	github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible // oras dep requires a replace is set
 
-	// reference commit a3fadb081241 on https://github.com/rancher/rancher/pull/49493 - 20250417121901
-	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20250417121901-a3fadb081241
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20250417121901-a3fadb081241
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20250417121901-a3fadb081241
+	// reference commit 6d284a77161d on https://github.com/rancher/rancher/pull/49493 - 20250423092018
+	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20250423092018-6d284a77161d
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20250423092018-6d284a77161d
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20250423092018-6d284a77161d
 
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0

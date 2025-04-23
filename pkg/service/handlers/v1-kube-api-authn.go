@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
 	"github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common"
 	log "github.com/sirupsen/logrus"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -115,7 +116,9 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 
 	clusterAuthSecret, err := h.secretLister.Get(h.namespace, common.ClusterAuthTokenSecretName(accessKey))
 	if err != nil {
-		return nil, err
+		if !apierrors.IsNotFound(err) {
+			return nil, err
+		}
 	}
 
 	err = common.VerifyClusterAuthToken(secretKey, clusterAuthToken, clusterAuthSecret)
