@@ -22,8 +22,6 @@ func (h *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
 }
 
 func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request) {
-	log.Info("Processing v1Authenticate request...")
-
 	response := types.V1AuthnResponse{
 		APIVersion: kubeapiauth.DefaultK8sAPIVersion,
 		Kind:       kubeapiauth.DefaultAuthnKind,
@@ -37,7 +35,6 @@ func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request)
 		ReturnHTTPError(w, r, http.StatusBadRequest, fmt.Sprintf("%v", err))
 		return
 	}
-	log.Infof("  ...looking up token for %s", accessKey)
 
 	user, err := h.v1getAndVerifyUser(accessKey, secretKey)
 	if err != nil {
@@ -57,8 +54,6 @@ func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request)
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
 		return
 	}
-	log.Infof("  json: %s", string(responseJSON))
-	log.Infof("  ...authenticated %s!", accessKey)
 }
 
 func v1parseBody(r *http.Request) (string, string, error) {
@@ -118,7 +113,12 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		return nil, fmt.Errorf("user is not enabled")
 	}
 
-	err = common.VerifyClusterAuthToken(secretKey, clusterAuthToken)
+	clusterAuthSecret, err := h.secretLister.Get(h.namespace, common.ClusterAuthTokenSecretName(accessKey))
+	if err != nil {
+		return nil, err
+	}
+
+	err = common.VerifyClusterAuthToken(secretKey, clusterAuthToken, clusterAuthSecret)
 	if err != nil {
 		return nil, err
 	}

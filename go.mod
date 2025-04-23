@@ -8,9 +8,10 @@ replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
 	github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible // oras dep requires a replace is set
 
-	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20250331174853-4b8ab8c48d68
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20250331174853-4b8ab8c48d68
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20250331174853-4b8ab8c48d68
+	// reference commit a3fadb081241 on https://github.com/rancher/rancher/pull/49493 - 20250417121901
+	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20250417121901-a3fadb081241
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20250417121901-a3fadb081241
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20250417121901-a3fadb081241
 
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0
@@ -57,7 +58,7 @@ replace (
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/rancher/norman v0.5.2
+	github.com/rancher/norman v0.6.0
 	github.com/rancher/rancher v0.0.0-20240730202829-9e0cc54e7e3a
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.16
@@ -154,7 +155,7 @@ require (
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/matryer/moq v0.3.4 // indirect
+	github.com/matryer/moq v0.5.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
@@ -181,7 +182,7 @@ require (
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rancher/aks-operator v1.11.0 // indirect
-	github.com/rancher/apiserver v0.5.2 // indirect
+	github.com/rancher/apiserver v0.6.0 // indirect
 	github.com/rancher/dynamiclistener v0.6.2 // indirect
 	github.com/rancher/eks-operator v1.11.0 // indirect
 	github.com/rancher/fleet/pkg/apis v0.12.0 // indirect
@@ -191,7 +192,7 @@ require (
 	github.com/rancher/rancher/pkg/apis v0.0.0-20241127174121-c051d99dcded // indirect
 	github.com/rancher/remotedialer v0.4.4 // indirect
 	github.com/rancher/rke v1.8.1 // indirect
-	github.com/rancher/steve v0.5.10 // indirect
+	github.com/rancher/steve v0.6.1 // indirect
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20250306000150-b1a9781accab // indirect
 	github.com/rancher/wrangler/v3 v3.2.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

@@ -13,6 +13,7 @@ type KubeAPIHandlers struct {
 	clusterUserAttribute       clusterv3.ClusterUserAttributeInterface
 	clusterUserAttributeLister clusterv3.ClusterUserAttributeLister
 	configMapLister            corev1.ConfigMapLister
+	secretLister               corev1.SecretLister
 }
 
 func NewKubeAPIHandlers(namespace string, apiContext *config.UserOnlyContext) *KubeAPIHandlers {
@@ -23,5 +24,6 @@ func NewKubeAPIHandlers(namespace string, apiContext *config.UserOnlyContext) *K
 		clusterUserAttribute:       apiContext.Cluster.ClusterUserAttributes(namespace),
 		clusterUserAttributeLister: apiContext.Cluster.ClusterUserAttributes(namespace).Controller().Lister(),
 		configMapLister:            apiContext.Core.ConfigMaps(namespace).Controller().Lister(),
+		secretLister:               apiContext.Core.Secrets(namespace).Controller().Lister(),
 	}
 }
