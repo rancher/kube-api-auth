@@ -139,11 +139,13 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		if err != nil && apierrors.IsAlreadyExists(err) {
 			// ... Overwrite an existing secret.
 			_, err = h.secrets.Update(clusterAuthTokenSecret)
+			log.Errorf("error migrating clusterAuthToken's secret %s: %s", clusterAuthToken.Name, err)
 		}
 		// Update shadow token to complete the migration
 		if err == nil {
 			clusterAuthToken.SecretKeyHash = "" // nolint:staticcheck
-			_, _ = h.clusterAuthTokens.Update(clusterAuthToken)
+			_, err = h.clusterAuthTokens.Update(clusterAuthToken)
+			log.Errorf("error migrating clusterAuthToken %s: %s", clusterAuthToken.Name, err)
 		}
 
 		// Note: migration errors leave a state behind where the
