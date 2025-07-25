@@ -131,17 +131,18 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 	// hash from the cluster auth token. The token controller performs the
 	// same actions.
 	if migrate {
-		clusterAuthTokenSecret := common.NewClusterAuthTokenSecretForName(clusterAuthToken.Name, clusterAuthToken.SecretKeyHash)
+		// go linting notes: this section of code intentionally reads/writes a deprecated resource field
+		clusterAuthTokenSecret := common.NewClusterAuthTokenSecretForName(clusterAuthToken.Name, clusterAuthToken.SecretKeyHash) // nolint:staticcheck
 
 		// Create missing secret, or ...
 		clusterAuthTokenSecret, err = h.secrets.Create(clusterAuthTokenSecret)
 		if err != nil && apierrors.IsAlreadyExists(err) {
 			// ... Overwrite an existing secret.
-			clusterAuthTokenSecret, err = h.secrets.Update(clusterAuthTokenSecret)
+			_, err = h.secrets.Update(clusterAuthTokenSecret)
 		}
 		// Update shadow token to complete the migration
 		if err == nil {
-			clusterAuthToken.SecretKeyHash = ""
+			clusterAuthToken.SecretKeyHash = "" // nolint:staticcheck
 			_, _ = h.clusterAuthTokens.Update(clusterAuthToken)
 		}
 
