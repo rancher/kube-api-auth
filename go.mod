@@ -63,9 +63,11 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/rancher/norman v0.7.0
 	github.com/rancher/rancher v0.0.0-20240730202829-9e0cc54e7e3a
+	github.com/rancher/rancher/pkg/apis v0.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.16
 	k8s.io/apimachinery v0.33.2
+	k8s.io/client-go v12.0.0+incompatible
 )
 
 require (
@@ -178,7 +180,6 @@ require (
 	github.com/rancher/gke-operator v1.12.0 // indirect
 	github.com/rancher/kubernetes-provider-detector v0.1.5 // indirect
 	github.com/rancher/lasso v0.2.3 // indirect
-	github.com/rancher/rancher/pkg/apis v0.0.0 // indirect
 	github.com/rancher/remotedialer v0.5.0-rc.1 // indirect
 	github.com/rancher/rke v1.8.1 // indirect
 	github.com/rancher/steve v0.7.0 // indirect
@@ -241,7 +242,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.33.2 // indirect
 	k8s.io/apiserver v0.33.2 // indirect
 	k8s.io/cli-runtime v0.33.2 // indirect
-	k8s.io/client-go v12.0.0+incompatible // indirect
 	k8s.io/component-base v0.33.2 // indirect
 	k8s.io/component-helpers v0.33.2 // indirect
 	k8s.io/controller-manager v0.0.0 // indirect
