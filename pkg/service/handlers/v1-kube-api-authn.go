@@ -38,7 +38,7 @@ func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request)
 		ReturnHTTPError(w, r, http.StatusBadRequest, fmt.Sprintf("%v", err))
 		return
 	}
-	
+
 	log.Debugf("Processing v1Authenticate request for %s", accessKey)
 
 	user, err := h.v1getAndVerifyUser(accessKey, secretKey)
