@@ -143,7 +143,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		// same actions.
 		if migrate {
 			// go linting notes: this section of code intentionally reads/writes a deprecated resource field
-			clusterAuthTokenSecret := common.NewClusterAuthTokenSecretForName(clusterAuthTokenLocal.Name, clusterAuthTokenLocal.SecretKeyHash) // nolint:staticcheck
+			clusterAuthTokenSecret := common.NewClusterAuthTokenSecretForName(h.namespace, clusterAuthTokenLocal.Name, clusterAuthTokenLocal.SecretKeyHash) // nolint:staticcheck
 
 			// Create missing secret, or ...
 			clusterAuthTokenSecret, err = h.secrets.Create(clusterAuthTokenSecret)
