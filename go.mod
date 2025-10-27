@@ -6,56 +6,49 @@ toolchain go1.24.7
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
-	github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible // oras dep requires a replace is set
-
 	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20251027152647-8df8a3f4e255
 	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20251027152647-8df8a3f4e255
 	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20251027152647-8df8a3f4e255
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
+	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.38.0
+	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.38.0
+	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.38.0
+	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.38.0
+	go.opentelemetry.io/proto/otlp => go.opentelemetry.io/proto/otlp v1.8.0
+	helm.sh/helm/v3 => github.com/rancher/helm/v3 v3.19.0-rancher1
 
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.58.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0
-	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.33.0
-	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.33.0
-	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.33.0
-	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.33.0
-	go.opentelemetry.io/proto/otlp => go.opentelemetry.io/proto/otlp v1.4.0
-	golang.org/x/net => golang.org/x/net v0.38.0 // CVE-2025-22872
-
-	helm.sh/helm/v3 => github.com/rancher/helm/v3 v3.18.3-rancher1
-
-	k8s.io/api => k8s.io/api v0.33.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.33.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.33.2
-	k8s.io/apiserver => k8s.io/apiserver v0.33.2
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.33.2
-	k8s.io/client-go => k8s.io/client-go v0.33.2
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.33.2
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.33.2
-	k8s.io/code-generator => k8s.io/code-generator v0.33.2
-	k8s.io/component-base => k8s.io/component-base v0.33.2
-	k8s.io/component-helpers => k8s.io/component-helpers v0.33.2
-	k8s.io/controller-manager => k8s.io/controller-manager v0.33.2
-	k8s.io/cri-api => k8s.io/cri-api v0.33.2
-	k8s.io/cri-client => k8s.io/cri-client v0.33.2
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.33.2
-	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.33.2
-	k8s.io/endpointslice => k8s.io/endpointslice v0.33.2
-	k8s.io/externaljwt => k8s.io/externaljwt v0.33.2
-	k8s.io/kms => k8s.io/kms v0.33.2
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.33.2
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.33.2
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.33.2
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.33.2
-	k8s.io/kubectl => k8s.io/kubectl v0.33.2
-	k8s.io/kubelet => k8s.io/kubelet v0.33.2
-	k8s.io/kubernetes => k8s.io/kubernetes v1.33.2
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.33.2
-	k8s.io/metrics => k8s.io/metrics v0.33.2
-	k8s.io/mount-utils => k8s.io/mount-utils v0.33.2
-	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.33.2
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.33.2
-	oras.land/oras-go => oras.land/oras-go v1.2.2 // for docker 20.10.x compatibility
+	k8s.io/api => k8s.io/api v0.34.1
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.34.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.34.1
+	k8s.io/apiserver => k8s.io/apiserver v0.34.1
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.34.1
+	k8s.io/client-go => k8s.io/client-go v0.34.1
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.34.1
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.34.1
+	k8s.io/code-generator => k8s.io/code-generator v0.34.1
+	k8s.io/component-base => k8s.io/component-base v0.34.1
+	k8s.io/component-helpers => k8s.io/component-helpers v0.34.1
+	k8s.io/controller-manager => k8s.io/controller-manager v0.34.1
+	k8s.io/cri-api => k8s.io/cri-api v0.34.1
+	k8s.io/cri-client => k8s.io/cri-client v0.34.1
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.34.1
+	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.34.1
+	k8s.io/endpointslice => k8s.io/endpointslice v0.34.1
+	k8s.io/externaljwt => k8s.io/externaljwt v0.34.1
+	k8s.io/kms => k8s.io/kms v0.34.1
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.34.1
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.34.1
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.34.1
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.34.1
+	k8s.io/kubectl => k8s.io/kubectl v0.34.1
+	k8s.io/kubelet => k8s.io/kubelet v0.34.1
+	k8s.io/kubernetes => k8s.io/kubernetes v1.34.1
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.34.1
+	k8s.io/metrics => k8s.io/metrics v0.34.1
+	k8s.io/mount-utils => k8s.io/mount-utils v0.34.1
+	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.34.1
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.34.1
 )
 
 require (
@@ -148,6 +141,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
@@ -167,14 +161,12 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
-	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
@@ -219,6 +211,6 @@ require (
 	sigs.k8s.io/kustomize/api v0.20.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
