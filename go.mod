@@ -6,9 +6,9 @@ toolchain go1.24.7
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
-	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20251027152647-8df8a3f4e255
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20251027152647-8df8a3f4e255
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20251027152647-8df8a3f4e255
+	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20251023101703-73e6898b0472
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20251023101703-73e6898b0472
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20251023101703-73e6898b0472
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.38.0
@@ -54,7 +54,7 @@ replace (
 require (
 	github.com/gorilla/mux v1.8.1
 	github.com/rancher/norman v0.7.1
-	github.com/rancher/rancher v0.0.0-20240730202829-9e0cc54e7e3a
+	github.com/rancher/rancher v0.0.0-00010101000000-000000000000
 	github.com/rancher/rancher/pkg/apis v0.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.16
