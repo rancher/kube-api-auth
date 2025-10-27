@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/rancher/kube-api-auth/pkg/service/controllers"
 	"github.com/rancher/kube-api-auth/pkg/service/handlers"
 	"github.com/rancher/norman/pkg/kwrapper/k8s"
-	"github.com/rancher/rancher/pkg/types/config"
+	clusterv3 "github.com/rancher/rancher/pkg/generated/norman/cluster.cattle.io/v3"
+	corev1 "github.com/rancher/rancher/pkg/generated/norman/core/v1"
 	"github.com/rancher/rancher/pkg/wrangler"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,17 +33,16 @@ func Serve(listen, namespace, kubeConfig string) error {
 	if err != nil {
 		return err
 	}
+	clusterAPI := clusterv3.NewFromControllerFactory(wranglerCtx.ControllerFactory)
+	coreAPI := corev1.NewFromControllerFactory(wranglerCtx.ControllerFactory)
 
-	apiContext, err := config.NewUserOnlyContext(wranglerCtx)
-	if err != nil {
-		return err
-	}
-
-	router := RouteContext(mux.NewRouter().StrictSlash(true), namespace, apiContext)
+	// API framework routes
+	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, clusterAPI, coreAPI)
+	router := RouteContext(kubeAPIHandlers)
 
 	go func() {
 		for {
-			if err := controllers.Start(ctx, apiContext); err != nil {
+			if err := wranglerCtx.ControllerFactory.Start(ctx, 5); err != nil {
 				log.Error(err)
 				time.Sleep(2 * time.Second)
 			} else {
@@ -55,9 +54,8 @@ func Serve(listen, namespace, kubeConfig string) error {
 	return http.ListenAndServe(listen, router)
 }
 
-func RouteContext(router *mux.Router, namespace string, apiContext *config.UserOnlyContext) *mux.Router {
-	// API framework routes
-	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, apiContext)
+func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *mux.Router {
+	router := mux.NewRouter().StrictSlash(true)
 	// Healthcheck endpoint
 	router.Methods("GET").Path("/healthcheck").Handler(handlers.HealthcheckHandler())
 	// V1 Authenticate endpoint
