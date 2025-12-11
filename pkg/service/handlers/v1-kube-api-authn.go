@@ -193,7 +193,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		now = now.Truncate(precision)
 
 		if clusterAuthToken.LastUsedAt != nil {
-			if now.Equal(clusterAuthToken.LastUsedAt.Time.Truncate(precision)) {
+			if now.Equal(clusterAuthToken.LastUsedAt.Truncate(precision)) {
 				// Throttle subsecond updates.
 				return
 			}
