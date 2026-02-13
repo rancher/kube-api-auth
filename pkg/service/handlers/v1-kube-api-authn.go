@@ -133,7 +133,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		}
 
 		err, migrate := common.VerifyClusterAuthToken(secretKey, clusterAuthTokenLocal, clusterAuthTokenSecret)
-		if err != nil {
+		if err != nil || !migrate {
 			return err
 		}
 
@@ -141,24 +141,32 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		// or writing over the secret to store the hash, and then removing the
 		// hash from the cluster auth token. The token controller performs the
 		// same actions.
-		if migrate {
-			// go linting notes: this section of code intentionally reads/writes a deprecated resource field
-			clusterAuthTokenSecret := common.NewClusterAuthTokenSecretForName(h.namespace, clusterAuthTokenLocal.Name, clusterAuthTokenLocal.SecretKeyHash) // nolint:staticcheck
+		// go linting notes: this section of code intentionally reads/writes a deprecated resource field
+		clusterAuthTokenSecret = common.NewClusterAuthTokenSecretForName(h.namespace, clusterAuthTokenLocal.Name, clusterAuthTokenLocal.SecretKeyHash) // nolint:staticcheck
 
-			// Create missing secret, or ...
-			clusterAuthTokenSecret, err = h.secrets.Create(clusterAuthTokenSecret)
-			if err != nil && apierrors.IsAlreadyExists(err) {
-				// ... Overwrite an existing secret.
-				_, err = h.secrets.Update(clusterAuthTokenSecret)
+		// Create missing secret, or ...
+		if _, err = h.secrets.Create(clusterAuthTokenSecret); err != nil {
+			if !apierrors.IsAlreadyExists(err) {
+				return err
+			}
+
+			// ... Overwrite an existing secret.
+			existing, err := h.secrets.GetNamespaced(clusterAuthTokenSecret.Namespace, clusterAuthTokenSecret.Name, metav1.GetOptions{})
+			if err != nil {
 				log.Errorf("error migrating clusterAuthToken's secret %s: %s", clusterAuthTokenLocal.Name, err)
+				return err
 			}
-			// Update shadow token to complete the migration
-			if err == nil {
-				clusterAuthTokenLocal.SecretKeyHash = "" // nolint:staticcheck
-				_, err = h.clusterAuthTokens.Update(clusterAuthTokenLocal)
-				log.Errorf("error migrating clusterAuthToken %s: %s", clusterAuthTokenLocal.Name, err)
+			existing.Data = clusterAuthTokenSecret.Data
+			if _, err := h.secrets.Update(existing); err != nil {
+				log.Errorf("error migrating clusterAuthToken's secret %s: %s", clusterAuthTokenLocal.Name, err)
+				return err
 			}
+		}
 
+		// Update shadow token to complete the migration
+		clusterAuthTokenLocal.SecretKeyHash = "" // nolint:staticcheck
+		if _, err = h.clusterAuthTokens.Update(clusterAuthTokenLocal); err != nil {
+			log.Errorf("error migrating clusterAuthToken %s: %s", clusterAuthTokenLocal.Name, err)
 			return err
 		}
 
