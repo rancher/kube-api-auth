@@ -93,7 +93,7 @@ jobs:
         file: package/Dockerfile
 
     - name: Scan for security vulnerabilities using Trivy
-      uses: aquasecurity/trivy-action@0.18.0
+      uses: aquasecurity/trivy-action@0.34.0
       with:
         image-ref: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
         ignore-unfixed: true
