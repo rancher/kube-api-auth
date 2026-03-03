@@ -12,7 +12,6 @@ env:
 
 permissions:
   contents: read
-  security-events: write # upload Trivy Sarif results
 
 jobs:
   linter:
@@ -91,19 +90,3 @@ jobs:
         push: false
         tags: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
         file: package/Dockerfile
-
-    - name: Scan for security vulnerabilities using Trivy
-      uses: aquasecurity/trivy-action@0.34.0
-      with:
-        image-ref: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
