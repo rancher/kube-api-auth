@@ -3,6 +3,6 @@
 /bin
 /dist
 *.swp
-/kube-api-auth
+kube-api-auth
 /trash.lock
 /.idea
