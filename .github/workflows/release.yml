@@ -27,15 +27,19 @@ jobs:
           - arm64
     steps:
       - name: Prepare Matrix Instance
+        id: prepare
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
         run: |
-          echo "PLATFORM_PAIR=${{ matrix.os }}-${{ matrix.arch }}"
-          echo "PLATFORM_PAIR=${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
-          echo "GOOS=${{ matrix.os }}"
-          echo "GOOS=${{ matrix.os }}"     >> $GITHUB_ENV
-          echo "GOARCH=${{ matrix.arch }}"
-          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
-          echo "ARCH=${{ matrix.arch }}"
-          echo "ARCH=${{ matrix.arch }}"   >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=$GOOS-$GOARCH"
+          echo "PLATFORM_PAIR=$GOOS-$GOARCH" >> "$GITHUB_OUTPUT"
+          echo "GOOS=$GOOS"
+          echo "GOOS=$GOOS"     >> "$GITHUB_OUTPUT"
+          echo "GOARCH=$GOARCH"
+          echo "GOARCH=$GOARCH" >> "$GITHUB_OUTPUT"
+          echo "ARCH=$GOARCH"
+          echo "ARCH=$GOARCH"   >> "$GITHUB_OUTPUT"
 
       - name: Retrieve Docker Hub Credentials From Vault
         uses: rancher-eio/read-vault-secrets@0da85151ad1f19ed7986c41587e45aac1ace74b6 # v3
@@ -52,6 +56,8 @@ jobs:
 
       - name: Get Sources
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Docker Meta Data Setup
         id: meta
@@ -72,6 +78,9 @@ jobs:
           cache: false
 
       - name: Build and stage
+        env:
+          GOOS: ${{ steps.prepare.outputs.GOOS }}
+          GOARCH: ${{ steps.prepare.outputs.GOARCH }}
         run: |
           ./scripts/build
           # Stage binary for packaging step
@@ -88,15 +97,16 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
 
       - name: Upload digest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: digests-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ steps.prepare.outputs.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -143,8 +153,10 @@ jobs:
         run: |
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+            $(printf "${IMAGE}@sha256:%s " *)
 
       - name: Inspect image
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect "${IMAGE}:${VERSION}"

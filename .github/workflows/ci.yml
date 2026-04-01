@@ -6,6 +6,10 @@ on:
       - master
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   GOLANG_CI_LINT_VERSION: v2.7.2
   IMAGE: rancher/kube-api-auth
@@ -19,6 +23,8 @@ jobs:
     steps:
     - name: Get Sources
       uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -57,23 +63,29 @@ jobs:
           - arm64
     steps:
     - name: Prepare Matrix Instance
+      id: prepare
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
       run: |
-        echo "GOOS=${{ matrix.os }}"
-        echo "GOOS=${{ matrix.os }}"     >> $GITHUB_ENV
-        echo "GOARCH=${{ matrix.arch }}"
-        echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
-        echo "ARCH=${{ matrix.arch }}"
-        echo "ARCH=${{ matrix.arch }}"   >> $GITHUB_ENV
+        echo "GOOS=$GOOS"
+        echo "GOOS=$GOOS"     >> "$GITHUB_OUTPUT"
+        echo "GOARCH=$GOARCH"
+        echo "GOARCH=$GOARCH" >> "$GITHUB_OUTPUT"
+        echo "ARCH=$GOARCH"
+        echo "ARCH=$GOARCH"   >> "$GITHUB_OUTPUT"
 
     - name: Get Sources
       uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
+      with:
+        persist-credentials: false
 
     - name: Determine Tag
       id: get-TAG
       run: |
-        export TAG=$(git describe --always)
+        TAG=$(git describe --always)
         echo "TAG=$TAG"
-        echo "TAG=$TAG" >> "$GITHUB_ENV"
+        echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
 
     - name: Set up Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -82,6 +94,9 @@ jobs:
         cache: false
 
     - name: Build
+      env:
+        GOOS: ${{ steps.prepare.outputs.GOOS }}
+        GOARCH: ${{ steps.prepare.outputs.GOARCH }}
       run: |
         ./scripts/build
         echo Stage binary for packaging step
@@ -92,5 +107,5 @@ jobs:
       with:
         context: package
         push: false
-        tags: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
+        tags: ${{ env.IMAGE }}:${{ steps.get-TAG.outputs.TAG }}-${{ steps.prepare.outputs.ARCH }}
         file: package/Dockerfile
