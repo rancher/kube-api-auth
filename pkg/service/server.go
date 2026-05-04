@@ -6,12 +6,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/rancher/kube-api-auth/pkg/clients"
 	"github.com/rancher/kube-api-auth/pkg/service/handlers"
-	"github.com/rancher/norman/pkg/kwrapper/k8s"
-	clusterv3 "github.com/rancher/rancher/pkg/generated/norman/cluster.cattle.io/v3"
-	corev1 "github.com/rancher/rancher/pkg/generated/norman/core/v1"
-	"github.com/rancher/rancher/pkg/wrangler"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func Serve(listen, namespace, kubeConfig string) error {
@@ -19,30 +17,22 @@ func Serve(listen, namespace, kubeConfig string) error {
 
 	ctx := context.Background()
 
-	_, clientConfig, err := k8s.GetConfig(ctx, "auto", kubeConfig)
+	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
 		return err
 	}
 
-	restConfig, err := clientConfig.ClientConfig()
+	c, err := clients.New(ctx, restConfig, namespace)
 	if err != nil {
 		return err
 	}
 
-	wranglerCtx, err := wrangler.NewContext(ctx, clientConfig, restConfig)
-	if err != nil {
-		return err
-	}
-	clusterAPI := clusterv3.NewFromControllerFactory(wranglerCtx.ControllerFactory)
-	coreAPI := corev1.NewFromControllerFactory(wranglerCtx.ControllerFactory)
-
-	// API framework routes
-	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, clusterAPI, coreAPI)
+	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, c)
 	router := RouteContext(kubeAPIHandlers)
 
 	go func() {
 		for {
-			if err := wranglerCtx.ControllerFactory.Start(ctx, 5); err != nil {
+			if err := c.Start(ctx); err != nil {
 				log.Error(err)
 				time.Sleep(2 * time.Second)
 			} else {
@@ -56,9 +46,7 @@ func Serve(listen, namespace, kubeConfig string) error {
 
 func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	// Healthcheck endpoint
 	router.Methods("GET").Path("/healthcheck").Handler(handlers.HealthcheckHandler())
-	// V1 Authenticate endpoint
 	router.Methods("POST").Path("/v1/authenticate").Handler(kubeAPIHandlers.V1AuthenticateHandler())
 
 	return router
