@@ -77,7 +77,7 @@ func v1parseBody(r *http.Request) (string, string, error) {
 		return "", "", fmt.Errorf("found %d parts of token", len(tokenParts))
 	}
 
-	accessKey := tokenParts[0]
+	accessKey := strings.TrimPrefix(tokenParts[0], "ext/")
 	secretKey := tokenParts[1]
 
 	return accessKey, secretKey, nil
