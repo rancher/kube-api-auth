@@ -36,6 +36,7 @@ const (
 
 var testSecretKeyHash string
 
+// Pre-compute the scrypt hash once — too expensive (~100ms) to repeat per subtest.
 func TestMain(m *testing.M) {
 	hash, err := hashers.ScryptHasher{}.CreateHash(testSecretKey)
 	if err != nil {
