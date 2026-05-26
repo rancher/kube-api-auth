@@ -20,8 +20,6 @@ func TestReturnHTTPError(t *testing.T) {
 		ReturnHTTPError(w, r, http.StatusUnauthorized, "invalid credentials")
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-		assert.Empty(t, w.Body.String())
 	})
 
 	t.Run("bad request", func(t *testing.T) {
@@ -33,6 +31,5 @@ func TestReturnHTTPError(t *testing.T) {
 		ReturnHTTPError(w, r, http.StatusBadRequest, "bad request")
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	})
 }

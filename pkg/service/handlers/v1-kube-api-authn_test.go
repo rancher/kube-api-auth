@@ -157,7 +157,7 @@ func TestV1parseBody(t *testing.T) {
 		r := tokenReviewRequest(t, "nocolonhere")
 
 		_, _, err := v1parseBody(r)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "found 1 parts of token")
 	})
 
 	t.Run("empty body", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestV1parseBody(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", strings.NewReader(""))
 
 		_, _, err := v1parseBody(r)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "unexpected end of JSON input")
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
@@ -175,7 +175,7 @@ func TestV1parseBody(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", strings.NewReader("{invalid"))
 
 		_, _, err := v1parseBody(r)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid character")
 	})
 
 	t.Run("wrong kind", func(t *testing.T) {
@@ -185,12 +185,13 @@ func TestV1parseBody(t *testing.T) {
 			Kind: "NotTokenReview",
 			Spec: types.V1AuthnRequestSpec{Token: "key:secret"},
 		}
-		data, _ := json.Marshal(body)
+		data, err := json.Marshal(body)
+		require.NoError(t, err)
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", bytes.NewReader(data))
 
-		_, _, err := v1parseBody(r)
+		_, _, err = v1parseBody(r)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not TokenReview")
+		assert.ErrorContains(t, err, "not TokenReview")
 	})
 
 	t.Run("empty token", func(t *testing.T) {
@@ -200,12 +201,13 @@ func TestV1parseBody(t *testing.T) {
 			Kind: kubeapiauth.DefaultAuthnKind,
 			Spec: types.V1AuthnRequestSpec{Token: ""},
 		}
-		data, _ := json.Marshal(body)
+		data, err := json.Marshal(body)
+		require.NoError(t, err)
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", bytes.NewReader(data))
 
-		_, _, err := v1parseBody(r)
+		_, _, err = v1parseBody(r)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "missing Token")
+		assert.ErrorContains(t, err, "missing Token")
 	})
 }
 
@@ -376,7 +378,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not enabled")
+		assert.ErrorContains(t, err, "not enabled")
 	})
 
 	t.Run("user not found", func(t *testing.T) {
@@ -423,7 +425,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not enabled")
+		assert.ErrorContains(t, err, "not enabled")
 	})
 
 	t.Run("wrong secret key", func(t *testing.T) {
@@ -450,7 +452,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(testAccessKey, "wrong-secret")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "does not match")
+		assert.ErrorContains(t, err, "does not match")
 	})
 
 	t.Run("expired token", func(t *testing.T) {
@@ -481,7 +483,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "expired")
+			assert.ErrorContains(t, err, "expired")
 		})
 	})
 
@@ -509,7 +511,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "missing")
+		assert.ErrorContains(t, err, "missing")
 	})
 
 	t.Run("migration creates secret and clears token hash", func(t *testing.T) {
@@ -656,7 +658,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "storage unavailable")
+		assert.ErrorContains(t, err, "storage unavailable")
 	})
 
 	t.Run("migration token update fails", func(t *testing.T) {
@@ -865,7 +867,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "parsing lastRefresh")
+			assert.ErrorContains(t, err, "parsing lastRefresh")
 		})
 	})
 
@@ -907,7 +909,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "update failed")
+			assert.ErrorContains(t, err, "update failed")
 		})
 	})
 
