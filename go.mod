@@ -57,7 +57,9 @@ require (
 	github.com/rancher/rancher v0.0.0-00010101000000-000000000000
 	github.com/rancher/rancher/pkg/apis v0.0.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli v1.22.16
+	k8s.io/api v0.34.3
 	k8s.io/apimachinery v0.34.3
 	k8s.io/client-go v12.0.0+incompatible
 )
@@ -190,7 +192,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.19.0 // indirect
-	k8s.io/api v0.34.3 // indirect
 	k8s.io/apiextensions-apiserver v0.34.3 // indirect
 	k8s.io/apiserver v0.34.3 // indirect
 	k8s.io/cli-runtime v0.34.3 // indirect
