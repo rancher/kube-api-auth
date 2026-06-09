@@ -86,6 +86,19 @@ jobs:
           # Stage binary for packaging step
           cp -r ./bin/* ./package/
 
+      - name: Resolve BCI base image
+        id: bci
+        env:
+          BASE_TAG: registry.suse.com/bci/bci-micro:15.7
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "$BASE_TAG" \
+            --format '{{.Manifest.Digest}}')
+          REF=$(docker buildx imagetools inspect "$BASE_TAG" --format '{{json .Image}}' \
+            | jq -er '[.[].config.Labels."org.opensuse.reference"] | unique
+                | if length == 1 then .[0] else error("base image ref differs across platforms") end')
+          echo "BASE_IMAGE=$REF"     >> "$GITHUB_OUTPUT"
+          echo "BASE_DIGEST=$DIGEST" >> "$GITHUB_OUTPUT"
+
       - name: Build image and push by digest
         id: build
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
@@ -94,6 +107,9 @@ jobs:
           file: package/Dockerfile
           platforms: ${{ matrix.os }}/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ steps.bci.outputs.BASE_IMAGE }}
+            BASE_DIGEST=${{ steps.bci.outputs.BASE_DIGEST }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
