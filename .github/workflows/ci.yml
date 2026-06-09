@@ -107,9 +107,9 @@ jobs:
 
     - name: Resolve BCI base image
       id: bci
-      env:
-        BASE_TAG: registry.suse.com/bci/bci-micro:15.7
       run: |
+        BASE_TAG=$(awk -F= '/^ARG BASE_IMAGE=/ {print $2; exit}' package/Dockerfile)
+        [ -n "$BASE_TAG" ] || { echo "could not parse BASE_IMAGE from package/Dockerfile" >&2; exit 1; }
         DIGEST=$(docker buildx imagetools inspect "$BASE_TAG" \
           --format '{{.Manifest.Digest}}')
         REF=$(docker buildx imagetools inspect "$BASE_TAG" --format '{{json .Image}}' \
