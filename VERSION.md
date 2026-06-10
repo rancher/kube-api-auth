@@ -3,12 +3,12 @@
 `kube-api-auth` ships as an OCI image consumed by `rancher/rancher` and is
 released directly from git tags.
 
-The `master` branch carries the leading edge. The master minor is bumped to
+The `main` branch carries the leading edge. The main minor is bumped to
 match the lowest Rancher minor the next release will serve — for example,
-master moves to `v0.13` when it starts tracking Rancher v2.13+. Tags on
-`master` are sequential patches within the minor: `v0.13.0`, `v0.13.1`, …
+main moves to `v0.13` when it starts tracking Rancher v2.13+. Tags on
+`main` are sequential patches within the minor: `v0.13.0`, `v0.13.1`, …
 
-Maintenance lines for Rancher versions no longer on master live on
+Maintenance lines for Rancher versions no longer on main live on
 `release/v0.<MIN>` branches (where `<MIN>` is the lowest Rancher minor
 served by that line), cut from the initial `v0.<MIN>.0` tag. Tags on
 maintenance branches are sequential: `v0.<MIN>.0`, `v0.<MIN>.1`, …
@@ -19,7 +19,7 @@ Keep the table well-formed: one row per branch, columns in the order shown.
 
 | Branch              | Minor   | Rancher Versions     | Status |
 |---------------------|---------|----------------------|--------|
-| master              | v0.13   | v2.13, v2.14, v2.15  | active |
+| main                | v0.13   | v2.13, v2.14, v2.15  | active |
 | release/v0.10       | v0.10   | v2.10, v2.11, v2.12  | active |
 
 Status values: `active` (receives fixes), `eol` (no longer maintained). EOL

@@ -12,7 +12,7 @@ A microservice for user authentication in kubernetes clusters.
 
 ## Versioning
 
-`kube-api-auth` is released directly from git tags as an OCI image consumed by `rancher/rancher`. The `master` branch carries the leading edge; its minor version is bumped to match the lowest Rancher minor being introduced when a breaking change lands. Maintenance lines for older Rancher versions live on `release/v0.<MIN>` branches (where `<MIN>` is the lowest Rancher minor served by that line).
+`kube-api-auth` is released directly from git tags as an OCI image consumed by `rancher/rancher`. The `main` branch carries the leading edge; its minor version is bumped to match the lowest Rancher minor being introduced when a breaking change lands. Maintenance lines for older Rancher versions live on `release/v0.<MIN>` branches (where `<MIN>` is the lowest Rancher minor served by that line).
 
 See [VERSION.md](VERSION.md) for the current branch ↔ minor ↔ Rancher mapping and the full scheme.
 
