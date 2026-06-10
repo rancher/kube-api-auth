@@ -3,36 +3,48 @@ name: CI Build and Check
 on:
   push:
     branches:
-      - master
+      - release/v0.10
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
+  GOLANG_CI_LINT_VERSION: v2.8.0
   IMAGE: rancher/kube-api-auth
 
 permissions:
   contents: read
-  security-events: write # upload Trivy Sarif results
 
 jobs:
   linter:
     runs-on: ubuntu-latest
     steps:
     - name: Get Sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version-file: 'go.mod'
         cache: false
 
+    # https://github.com/golang/go/issues/75031
+    - name: Set toolchain version
+      run: go env -w GOTOOLCHAIN=go1.25.4+auto
+
+    - name: Install golangci-lint
+      uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
+      with:
+        version: ${{ env.GOLANG_CI_LINT_VERSION }}
+        install-only: true
+
     - name: Validate the sources
       run: |
         ./scripts/validate
-        # Except for linting. That is done through the proper GH action
-
-    - name: Lint sources
-      uses: golangci/golangci-lint-action@v6
 
     - name: Test
       run: ./scripts/test
@@ -51,56 +63,68 @@ jobs:
           - arm64
     steps:
     - name: Prepare Matrix Instance
+      id: prepare
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
       run: |
-        echo "GOOS=${{ matrix.os }}"
-        echo "GOOS=${{ matrix.os }}"     >> $GITHUB_ENV
-        echo "GOARCH=${{ matrix.arch }}"
-        echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
-        echo "ARCH=${{ matrix.arch }}"
-        echo "ARCH=${{ matrix.arch }}"   >> $GITHUB_ENV
+        echo "GOOS=$GOOS"
+        echo "GOOS=$GOOS"     >> "$GITHUB_OUTPUT"
+        echo "GOARCH=$GOARCH"
+        echo "GOARCH=$GOARCH" >> "$GITHUB_OUTPUT"
+        echo "ARCH=$GOARCH"
+        echo "ARCH=$GOARCH"   >> "$GITHUB_OUTPUT"
 
     - name: Get Sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
 
     - name: Determine Tag
       id: get-TAG
       run: |
-        export TAG=$(git describe --always)
+        TAG=$(git describe --always)
         echo "TAG=$TAG"
-        echo "TAG=$TAG" >> "$GITHUB_ENV"
+        echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version-file: 'go.mod'
         cache: false
 
     - name: Build
+      env:
+        GOOS: ${{ steps.prepare.outputs.GOOS }}
+        GOARCH: ${{ steps.prepare.outputs.GOARCH }}
       run: |
         ./scripts/build
         echo Stage binary for packaging step
         cp -rv ./bin/* ./package/
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+    - name: Resolve BCI base image
+      id: bci
+      run: |
+        BASE_TAG=$(awk -F= '/^ARG BASE_IMAGE=/ {print $2; exit}' package/Dockerfile)
+        [ -n "$BASE_TAG" ] || { echo "could not parse BASE_IMAGE from package/Dockerfile" >&2; exit 1; }
+        DIGEST=$(docker buildx imagetools inspect "$BASE_TAG" \
+          --format '{{.Manifest.Digest}}')
+        REF=$(docker buildx imagetools inspect "$BASE_TAG" --format '{{json .Image}}' \
+          | jq -er '[.[].config.Labels."org.opensuse.reference"] | unique
+              | if length == 1 then .[0] else error("base image ref differs across platforms") end')
+        echo "BASE_IMAGE=$REF"     >> "$GITHUB_OUTPUT"
+        echo "BASE_DIGEST=$DIGEST" >> "$GITHUB_OUTPUT"
+
     - name: Package up into container image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
       with:
         context: package
         push: false
-        tags: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
+        tags: ${{ env.IMAGE }}:${{ steps.get-TAG.outputs.TAG }}-${{ steps.prepare.outputs.ARCH }}
         file: package/Dockerfile
-
-    - name: Scan for security vulnerabilities using Trivy
-      uses: aquasecurity/trivy-action@0.18.0
-      with:
-        image-ref: ${{ env.IMAGE }}:${{ env.TAG }}-${{ env.ARCH }}
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
+        build-args: |
+          BASE_IMAGE=${{ steps.bci.outputs.BASE_IMAGE }}
+          BASE_DIGEST=${{ steps.bci.outputs.BASE_DIGEST }}

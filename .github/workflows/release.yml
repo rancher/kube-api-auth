@@ -27,76 +27,102 @@ jobs:
           - arm64
     steps:
       - name: Prepare Matrix Instance
+        id: prepare
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
         run: |
-          echo "PLATFORM_PAIR=${{ matrix.os }}-${{ matrix.arch }}"
-          echo "PLATFORM_PAIR=${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
-          echo "GOOS=${{ matrix.os }}"
-          echo "GOOS=${{ matrix.os }}"     >> $GITHUB_ENV
-          echo "GOARCH=${{ matrix.arch }}"
-          echo "GOARCH=${{ matrix.arch }}" >> $GITHUB_ENV
-          echo "ARCH=${{ matrix.arch }}"
-          echo "ARCH=${{ matrix.arch }}"   >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=$GOOS-$GOARCH"
+          echo "PLATFORM_PAIR=$GOOS-$GOARCH" >> "$GITHUB_OUTPUT"
+          echo "GOOS=$GOOS"
+          echo "GOOS=$GOOS"     >> "$GITHUB_OUTPUT"
+          echo "GOARCH=$GOARCH"
+          echo "GOARCH=$GOARCH" >> "$GITHUB_OUTPUT"
+          echo "ARCH=$GOARCH"
+          echo "ARCH=$GOARCH"   >> "$GITHUB_OUTPUT"
 
       - name: Retrieve Docker Hub Credentials From Vault
-        uses: rancher-eio/read-vault-secrets@main
+        uses: rancher-eio/read-vault-secrets@0da85151ad1f19ed7986c41587e45aac1ace74b6 # v3
         with:
           secrets: |
             secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKERHUB_USERNAME ;
             secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKERHUB_PASSWORD
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ env.DOCKERHUB_PASSWORD }}
 
       - name: Get Sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Docker Meta Data Setup
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.IMAGE }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: 'go.mod'
           cache: false
 
       - name: Build and stage
+        env:
+          GOOS: ${{ steps.prepare.outputs.GOOS }}
+          GOARCH: ${{ steps.prepare.outputs.GOARCH }}
         run: |
           ./scripts/build
           # Stage binary for packaging step
           cp -r ./bin/* ./package/
 
+      - name: Resolve BCI base image
+        id: bci
+        run: |
+          BASE_TAG=$(awk -F= '/^ARG BASE_IMAGE=/ {print $2; exit}' package/Dockerfile)
+          [ -n "$BASE_TAG" ] || { echo "could not parse BASE_IMAGE from package/Dockerfile" >&2; exit 1; }
+          DIGEST=$(docker buildx imagetools inspect "$BASE_TAG" \
+            --format '{{.Manifest.Digest}}')
+          REF=$(docker buildx imagetools inspect "$BASE_TAG" --format '{{json .Image}}' \
+            | jq -er '[.[].config.Labels."org.opensuse.reference"] | unique
+                | if length == 1 then .[0] else error("base image ref differs across platforms") end')
+          echo "BASE_IMAGE=$REF"     >> "$GITHUB_OUTPUT"
+          echo "BASE_DIGEST=$DIGEST" >> "$GITHUB_OUTPUT"
+
       - name: Build image and push by digest
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: package
           file: package/Dockerfile
           platforms: ${{ matrix.os }}/${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ steps.bci.outputs.BASE_IMAGE }}
+            BASE_DIGEST=${{ steps.bci.outputs.BASE_DIGEST }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: digests-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ steps.prepare.outputs.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -110,31 +136,31 @@ jobs:
       - push
     steps:
       - name: Retrieve Docker Hub Credentials From Vault
-        uses: rancher-eio/read-vault-secrets@main
+        uses: rancher-eio/read-vault-secrets@0da85151ad1f19ed7986c41587e45aac1ace74b6 # v3
         with:
           secrets: |
             secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKERHUB_USERNAME ;
             secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKERHUB_PASSWORD
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ env.DOCKERHUB_PASSWORD }}
 
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.IMAGE }}
 
@@ -143,8 +169,10 @@ jobs:
         run: |
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+            $(printf "${IMAGE}@sha256:%s " *)
 
       - name: Inspect image
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect "${IMAGE}:${VERSION}"
