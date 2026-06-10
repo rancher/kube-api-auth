@@ -5,6 +5,7 @@ go 1.25.0
 toolchain go1.25.11
 
 replace (
+	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
 	github.com/docker/docker => github.com/docker/docker v20.10.27+incompatible // oras dep requires a replace is set
 
 	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20241004204441-d3c434633444
