@@ -26,4 +26,4 @@ if ! command -v golangci-lint; then
 fi
 
 echo Running: golangci-lint
-golangci-lint run --timeout=3m
+golangci-lint run -v
