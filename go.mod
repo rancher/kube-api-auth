@@ -5,7 +5,7 @@ go 1.26.0
 toolchain go1.26.4
 
 replace (
-	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
+	github.com/docker/distribution => github.com/docker/distribution v2.8.3+incompatible
 	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20260527192536-93a5abcbed0d
 	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20260527192536-93a5abcbed0d
 	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260527192536-93a5abcbed0d
