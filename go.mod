@@ -58,7 +58,7 @@ require (
 	github.com/rancher/rancher/pkg/apis v0.0.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
-	github.com/urfave/cli v1.22.16
+	github.com/urfave/cli v1.22.17
 	k8s.io/api v0.34.8
 	k8s.io/apimachinery v0.34.8
 	k8s.io/client-go v12.0.0+incompatible
