@@ -13,7 +13,7 @@ replace (
 	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.43.0
 	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.43.0
-	go.opentelemetry.io/proto/otlp => go.opentelemetry.io/proto/otlp v1.8.0
+	go.opentelemetry.io/proto/otlp => go.opentelemetry.io/proto/otlp v1.10.0
 
 	k8s.io/api => k8s.io/api v0.36.1
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.36.1
