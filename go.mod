@@ -6,9 +6,9 @@ toolchain go1.26.4
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
-	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20260527192536-93a5abcbed0d
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20260527192536-93a5abcbed0d
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260527192536-93a5abcbed0d
+	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20260625175101-3356ef3e6d94
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20260625175101-3356ef3e6d94
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260625175101-3356ef3e6d94
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.41.0
@@ -53,14 +53,14 @@ replace (
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/rancher/norman v0.7.3
+	github.com/rancher/norman v0.7.4
 	github.com/rancher/rancher v0.0.0-00010101000000-000000000000
 	github.com/rancher/rancher/pkg/apis v0.0.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli v1.22.16
-	k8s.io/api v0.34.8
-	k8s.io/apimachinery v0.34.8
+	k8s.io/api v0.34.9
+	k8s.io/apimachinery v0.34.9
 	k8s.io/client-go v12.0.0+incompatible
 )
 
@@ -148,16 +148,16 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
-	github.com/rancher/aks-operator v1.13.6 // indirect
-	github.com/rancher/ali-operator v1.13.3 // indirect
-	github.com/rancher/apiserver v0.7.8 // indirect
-	github.com/rancher/eks-operator v1.13.6 // indirect
-	github.com/rancher/fleet/pkg/apis v0.14.6 // indirect
-	github.com/rancher/gke-operator v1.13.6 // indirect
+	github.com/rancher/aks-operator v1.13.7 // indirect
+	github.com/rancher/ali-operator v1.13.4 // indirect
+	github.com/rancher/apiserver v0.7.9 // indirect
+	github.com/rancher/eks-operator v1.13.7 // indirect
+	github.com/rancher/fleet/pkg/apis v0.14.8 // indirect
+	github.com/rancher/gke-operator v1.13.7 // indirect
 	github.com/rancher/lasso v0.2.5 // indirect
 	github.com/rancher/remotedialer v0.6.0 // indirect
 	github.com/rancher/rke v1.8.1 // indirect
-	github.com/rancher/steve v0.7.46 // indirect
+	github.com/rancher/steve v0.7.47 // indirect
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20250930163923-f2c9e60b1078 // indirect
 	github.com/rancher/wrangler/v3 v3.3.5 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
@@ -170,20 +170,20 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	go.opentelemetry.io/otel v1.41.0 // indirect
-	go.opentelemetry.io/otel/trace v1.41.0 // indirect
+	go.opentelemetry.io/otel v1.43.0 // indirect
+	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
-	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	golang.org/x/tools v0.44.0 // indirect
+	golang.org/x/tools v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
@@ -192,18 +192,18 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.19.0 // indirect
-	k8s.io/apiextensions-apiserver v0.34.6 // indirect
-	k8s.io/apiserver v0.34.6 // indirect
-	k8s.io/cli-runtime v0.34.6 // indirect
-	k8s.io/component-base v0.34.6 // indirect
-	k8s.io/component-helpers v0.34.6 // indirect
-	k8s.io/controller-manager v0.34.6 // indirect
+	k8s.io/apiextensions-apiserver v0.34.9 // indirect
+	k8s.io/apiserver v0.34.9 // indirect
+	k8s.io/cli-runtime v0.34.9 // indirect
+	k8s.io/component-base v0.34.9 // indirect
+	k8s.io/component-helpers v0.34.9 // indirect
+	k8s.io/controller-manager v0.34.9 // indirect
 	k8s.io/helm v2.17.0+incompatible // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-aggregator v0.34.6 // indirect
+	k8s.io/kube-aggregator v0.34.9 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
-	k8s.io/kubectl v0.34.6 // indirect
-	k8s.io/kubernetes v1.34.6 // indirect
+	k8s.io/kubectl v0.34.9 // indirect
+	k8s.io/kubernetes v1.34.9 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/cli-utils v0.37.2 // indirect
