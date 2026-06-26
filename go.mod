@@ -7,7 +7,7 @@ replace (
 	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20260625140903-06a1727c1d54
 	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54
 	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260625140903-06a1727c1d54
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.43.0
