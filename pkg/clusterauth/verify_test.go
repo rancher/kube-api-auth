@@ -107,6 +107,27 @@ func TestNotExpired(t *testing.T) {
 	assert.False(t, migrate)
 }
 
+func TestUnknownHashVersion(t *testing.T) {
+	t.Parallel()
+	token := newTestClusterAuthToken("test-token", "me")
+	secret := NewClusterAuthTokenSecretForName(testNamespace, token.Name, "$9:not-a-real-version:salt:hash")
+
+	migrate, verifyErr := VerifyClusterAuthToken("anything", token, secret)
+	assert.Error(t, verifyErr)
+	assert.ErrorContains(t, verifyErr, "unable to get hasher")
+	assert.False(t, migrate)
+}
+
+func TestMalformedHashFormat(t *testing.T) {
+	t.Parallel()
+	token := newTestClusterAuthToken("test-token", "me")
+	secret := NewClusterAuthTokenSecretForName(testNamespace, token.Name, "not-a-valid-hash-format")
+
+	migrate, verifyErr := VerifyClusterAuthToken("anything", token, secret)
+	assert.Error(t, verifyErr)
+	assert.False(t, migrate)
+}
+
 func TestInvalidExpiresAt(t *testing.T) {
 	t.Parallel()
 	secretKey := strings.Repeat("A", 72)
