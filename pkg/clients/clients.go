@@ -22,6 +22,8 @@ func init() {
 	_ = schemes.Register(clusterv3api.AddToScheme)
 }
 
+const clusterControllerWorkers = 5
+
 type Clients struct {
 	ClusterAuthTokens     clusterv3.ClusterAuthTokenClient
 	ClusterAuthTokenCache clusterv3.ClusterAuthTokenCache
@@ -78,7 +80,7 @@ func (c *Clients) Start(ctx context.Context) error {
 	c.coreFactory.Start(ctx.Done())
 	c.coreFactory.WaitForCacheSync(ctx.Done())
 
-	if err := c.clusterFactory.Start(ctx, 5); err != nil {
+	if err := c.clusterFactory.Start(ctx, clusterControllerWorkers); err != nil {
 		return fmt.Errorf("starting cluster controllers: %w", err)
 	}
 

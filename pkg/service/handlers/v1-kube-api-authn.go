@@ -102,75 +102,40 @@ func v1getBodyAuthnRequest(bytes []byte) (*types.V1AuthnRequest, error) {
 }
 
 func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, secretKey string) (*types.V1AuthnResponseUser, error) {
-
-	var clusterUserAttribute *clusterv3.ClusterUserAttribute
-	var clusterAuthToken *clusterv3.ClusterAuthToken
-
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		clusterAuthTokenLocal, err := h.clusterAuthTokensCache.Get(h.namespace, accessKey)
-		if err != nil {
-			return err
-		}
-		clusterAuthToken = clusterAuthTokenLocal
-		if !clusterAuthTokenLocal.Enabled {
-			return fmt.Errorf("token is not enabled")
-		}
-
-		clusterUserAttributeLocal, err := h.clusterUserAttributesCache.Get(h.namespace, clusterAuthTokenLocal.UserName)
-		if err != nil {
-			return err
-		}
-
-		clusterUserAttribute = clusterUserAttributeLocal
-		if !clusterUserAttributeLocal.Enabled {
-			return fmt.Errorf("user is not enabled")
-		}
-
-		clusterAuthTokenSecret, err := h.secretLister.Get(accessKey)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-
-		migrate, err := clusterauth.VerifyClusterAuthToken(secretKey, clusterAuthTokenLocal, clusterAuthTokenSecret)
-		if err != nil || !migrate {
-			return err
-		}
-
-		// Migrate an un-migrated cluster auth token. This is done by creating
-		// or writing over the secret to store the hash, and then removing the
-		// hash from the cluster auth token. The token controller performs the
-		// same actions.
-		// go linting notes: this section of code intentionally reads/writes a deprecated resource field
-		clusterAuthTokenSecret = clusterauth.NewClusterAuthTokenSecretForName(h.namespace, clusterAuthTokenLocal.Name, clusterAuthTokenLocal.SecretKeyHash) // nolint:staticcheck
-
-		if _, err = h.secrets.Create(ctx, clusterAuthTokenSecret, metav1.CreateOptions{}); err != nil {
-			if !apierrors.IsAlreadyExists(err) {
-				return err
-			}
-
-			existing, err := h.secrets.Get(ctx, clusterAuthTokenSecret.Name, metav1.GetOptions{})
-			if err != nil {
-				log.Errorf("error migrating clusterAuthToken's secret %s: %s", clusterAuthTokenLocal.Name, err)
-				return err
-			}
-			existing.Data = clusterAuthTokenSecret.Data
-			if _, err := h.secrets.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
-				log.Errorf("error migrating clusterAuthToken's secret %s: %s", clusterAuthTokenLocal.Name, err)
-				return err
-			}
-		}
-
-		clusterAuthTokenLocal.SecretKeyHash = "" // nolint:staticcheck
-		if _, err = h.clusterAuthTokens.Update(clusterAuthTokenLocal); err != nil {
-			log.Errorf("error migrating clusterAuthToken %s: %s", clusterAuthTokenLocal.Name, err)
-			return err
-		}
-
-		return nil
-	})
-
+	clusterAuthToken, err := h.clusterAuthTokensCache.Get(h.namespace, accessKey)
 	if err != nil {
 		return nil, err
+	}
+	if !clusterAuthToken.Enabled {
+		return nil, fmt.Errorf("token is not enabled")
+	}
+
+	clusterUserAttribute, err := h.clusterUserAttributesCache.Get(h.namespace, clusterAuthToken.UserName)
+	if err != nil {
+		return nil, err
+	}
+	if !clusterUserAttribute.Enabled {
+		return nil, fmt.Errorf("user is not enabled")
+	}
+
+	clusterAuthTokenSecret, err := h.secretLister.Get(accessKey)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+
+	migrate, err := clusterauth.VerifyClusterAuthToken(secretKey, clusterAuthToken, clusterAuthTokenSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	if migrate {
+		migrated, err := h.migrateHash(ctx, accessKey)
+		if err != nil {
+			return nil, err
+		}
+		if migrated != nil {
+			clusterAuthToken = migrated
+		}
 	}
 
 	now := time.Now()
@@ -182,35 +147,85 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 		}
 
 		if refresh.Add(refreshPeriod).Before(now) {
-			clusterUserAttribute.NeedsRefresh = true
-			if _, err := h.clusterUserAttributes.Update(clusterUserAttribute); err != nil {
+			updated := clusterUserAttribute.DeepCopy()
+			updated.NeedsRefresh = true
+			if _, err := h.clusterUserAttributes.Update(updated); err != nil {
 				return nil, fmt.Errorf("error updating clusterUserAttribute %s: %w", clusterUserAttribute.Name, err)
 			}
 		}
 	}
 
-	func() {
-		precision := time.Second
-		now = now.Truncate(precision)
-
-		if clusterAuthToken.LastUsedAt != nil {
-			if now.Equal(clusterAuthToken.LastUsedAt.Truncate(precision)) {
-				return
-			}
-		}
-
-		lastUsedAt := metav1.NewTime(now)
-		clusterAuthToken.LastUsedAt = &lastUsedAt
-
-		if _, err = h.clusterAuthTokens.Update(clusterAuthToken); err != nil {
-			log.Errorf("error updating clusterAuthToken %s: %s", clusterAuthToken.Name, err)
-		}
-	}()
+	h.touchLastUsedAt(now, clusterAuthToken)
 
 	return &types.V1AuthnResponseUser{
 		UserName: clusterAuthToken.UserName,
 		Groups:   clusterUserAttribute.Groups,
 	}, nil
+}
+
+// migrateHash moves a token's hash from the deprecated
+// ClusterAuthToken.SecretKeyHash field into a Secret and clears the field on
+// the token. Only the token update is retried on conflict: a concurrent
+// migration by another pod (or the token controller) may have already cleared
+// the field, in which case a fresh cache read returns and nothing is updated.
+// Returns the migrated token so callers can use it in place of their stale
+// copy; returns nil if another actor already migrated.
+func (h *KubeAPIHandlers) migrateHash(ctx context.Context, accessKey string) (*clusterv3.ClusterAuthToken, error) {
+	var migrated *clusterv3.ClusterAuthToken
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		token, err := h.clusterAuthTokensCache.Get(h.namespace, accessKey)
+		if err != nil {
+			return err
+		}
+		if token.SecretKeyHash == "" { //nolint:staticcheck
+			return nil
+		}
+
+		secret := clusterauth.NewClusterAuthTokenSecretForName(h.namespace, token.Name, token.SecretKeyHash) //nolint:staticcheck
+		if _, err := h.secrets.Create(ctx, secret, metav1.CreateOptions{}); err != nil {
+			if !apierrors.IsAlreadyExists(err) {
+				return err
+			}
+			existing, err := h.secrets.Get(ctx, secret.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("migrating clusterAuthToken secret %s: %w", token.Name, err)
+			}
+			existing.Data = secret.Data
+			if _, err := h.secrets.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("migrating clusterAuthToken secret %s: %w", token.Name, err)
+			}
+		}
+
+		token = token.DeepCopy()
+		token.SecretKeyHash = "" //nolint:staticcheck
+		updated, err := h.clusterAuthTokens.Update(token)
+		if err != nil {
+			return fmt.Errorf("migrating clusterAuthToken %s: %w", token.Name, err)
+		}
+		migrated = updated
+		return nil
+	})
+	return migrated, err
+}
+
+// touchLastUsedAt bumps ClusterAuthToken.LastUsedAt to now, at most once per
+// second, on a defensive copy of the cached object. Update errors are logged
+// and swallowed since a stale LastUsedAt should not fail authentication.
+func (h *KubeAPIHandlers) touchLastUsedAt(now time.Time, token *clusterv3.ClusterAuthToken) {
+	const precision = time.Second
+	now = now.Truncate(precision)
+
+	if token.LastUsedAt != nil && now.Equal(token.LastUsedAt.Truncate(precision)) {
+		return
+	}
+
+	updated := token.DeepCopy()
+	lastUsedAt := metav1.NewTime(now)
+	updated.LastUsedAt = &lastUsedAt
+
+	if _, err := h.clusterAuthTokens.Update(updated); err != nil {
+		log.Errorf("error updating clusterAuthToken %s: %s", updated.Name, err)
+	}
 }
 
 func (h *KubeAPIHandlers) getRefreshPeriod() time.Duration {
