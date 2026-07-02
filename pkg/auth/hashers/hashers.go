@@ -1,3 +1,7 @@
+// Package hashers provides the various hash methods which can be used to hash tokens.
+//
+// Forked from github.com/rancher/rancher/pkg/auth/tokens/hashers at
+// v0.0.0-20260625140903-06a1727c1d54.
 package hashers
 
 import (
@@ -14,11 +18,15 @@ const (
 	SHA3Version
 )
 
+// Hasher describes an interface which allows a user to create a hash for a value or verify that a hash is correct.
 type Hasher interface {
+	// CreateHash creates a hash for a secret, returns nil, err if it encounters an error
 	CreateHash(secretKey string) (string, error)
+	// VerifyHash verifies that the hash of secretKey == hash
 	VerifyHash(hash, secretKey string) error
 }
 
+// GetHasherForHash matches a hash with the hasher that produced it by looking at the version in the string.
 func GetHasherForHash(hash string) (Hasher, error) {
 	version, err := GetHashVersion(hash)
 	if err != nil {
@@ -36,16 +44,19 @@ func GetHasherForHash(hash string) (Hasher, error) {
 	}
 }
 
+// GetHasher produces the hasher which should be used for new tokens, for verifying existing tokens use GetHasherForHash.
 func GetHasher() Hasher {
 	return Sha3Hasher{}
 }
 
+// GetHashVersion produces the hash version for a given hash.
 func GetHashVersion(hash string) (HashVersion, error) {
 	splitHash := strings.SplitN(strings.TrimPrefix(hash, "$"), ":", 3)
 	if len(splitHash) != 3 {
 		return 0, fmt.Errorf("hash format invalid")
 	}
 	version, err := strconv.Atoi(splitHash[0])
+	// this value could in theory be part of a sensitive value, so we don't include it in the error
 	if err != nil {
 		return 0, fmt.Errorf("unable to convert hash version")
 	}

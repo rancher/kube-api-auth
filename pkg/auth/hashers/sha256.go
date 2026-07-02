@@ -12,11 +12,13 @@ import (
 )
 
 const (
-	sha256HashFormat = "$%d:%s:%s"
+	sha256HashFormat = "$%d:%s:%s" // $version:salt:hash -> $1:abc:def
 )
 
+// Sha256Hasher implements the Hasher interface using a backing algorithm of SHA256.
 type Sha256Hasher struct{}
 
+// CreateHash hashes secretKey using a random salt and SHA256.
 func (s Sha256Hasher) CreateHash(secretKey string) (string, error) {
 	salt := make([]byte, 8)
 	_, err := rand.Read(salt)
@@ -29,6 +31,8 @@ func (s Sha256Hasher) CreateHash(secretKey string) (string, error) {
 	return fmt.Sprintf(sha256HashFormat, SHA256Version, encSalt, encKey), nil
 }
 
+// VerifyHash compares a key with the hash, and will produce an error if the hash does not match or if the hash is not
+// a valid SHA256 hash.
 func (s Sha256Hasher) VerifyHash(hash, secretKey string) error {
 	if !strings.HasPrefix(hash, "$") {
 		return errors.New("hash format invalid")
@@ -47,12 +51,13 @@ func (s Sha256Hasher) VerifyHash(hash, secretKey string) error {
 	}
 
 	salt, enc := splitHash[1], splitHash[2]
+	// base64 decode stored salt and key
 	decodedKey, err := base64.RawStdEncoding.DecodeString(enc)
 	if err != nil {
 		return err
 	}
 	if len(decodedKey) < 1 {
-		return errors.New("secretKey hash does not match")
+		return errors.New("secretKey hash does not match") // Don't allow accidental empty string to succeed
 	}
 	decodedSalt, err := base64.RawStdEncoding.DecodeString(salt)
 	if err != nil {

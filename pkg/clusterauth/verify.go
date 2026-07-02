@@ -1,3 +1,8 @@
+// Package clusterauth verifies cluster auth tokens against their stored hash.
+//
+// Adapted from github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common at
+// v0.0.0-20260625140903-06a1727c1d54. Token-creation helpers were dropped because kube-api-auth
+// only verifies tokens; the VerifyClusterAuthToken return order was normalized to (result, error).
 package clusterauth
 
 import (
@@ -10,10 +15,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ClusterAuthTokenSecretValue extracts the token hash stored in the secret.
 func ClusterAuthTokenSecretValue(clusterAuthSecret *corev1.Secret) string {
 	return string(clusterAuthSecret.Data[ClusterAuthSecretHashField])
 }
 
+// NewClusterAuthTokenSecretForName creates a new secret from the given token and its hash value.
+// The cluster auth token is managed separately. Does not create the secret in the remote cluster.
 func NewClusterAuthTokenSecretForName(ns, name, hashedValue string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -31,6 +39,9 @@ func NewClusterAuthTokenSecretForName(ns, name, hashedValue string) *corev1.Secr
 	}
 }
 
+// VerifyClusterAuthToken verifies that a provided secret key is valid for the
+// given clusterAuthToken and hashed value. Also determines if the hashed value
+// requires migration from cluster auth token to cluster auth token secret.
 func VerifyClusterAuthToken(secretKey string, clusterAuthToken *clusterv3.ClusterAuthToken, clusterAuthTokenSecret *corev1.Secret) (migrate bool, err error) {
 	if !clusterAuthToken.Enabled {
 		return false, fmt.Errorf("token is not enabled")

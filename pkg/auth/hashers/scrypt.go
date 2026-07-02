@@ -13,8 +13,10 @@ const (
 	scryptHashFormat = "$%d:%x:%d:%d:%d:%s"
 )
 
+// ScryptHasher implements the Hasher interface using a backing algorithm of Scrypt.
 type ScryptHasher struct{}
 
+// CreateHash hashes secretKey using a salt and scrypt.
 func (s ScryptHasher) CreateHash(secretKey string) (string, error) {
 	const (
 		n       = 15
@@ -41,6 +43,8 @@ func (s ScryptHasher) CreateHash(secretKey string) (string, error) {
 	return hash, nil
 }
 
+// VerifyHash compares a key with the hash, and will produce an error if the hash does not match or if the hash is not
+// a valid scrypt hash.
 func (s ScryptHasher) VerifyHash(hash, secretKey string) error {
 	var (
 		version, n uint
