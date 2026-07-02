@@ -79,7 +79,14 @@ func (s Sha3Hasher) VerifyHash(hash, secretKey string) error {
 	if err != nil {
 		return err
 	}
-	hashedSecretKey := sha3.Sum512([]byte(fmt.Sprintf("%s%s", string(decodedSalt), secretKey)))
+	// Concatenate salt||secretKey in a single pre-sized []byte, mirroring
+	// the zero-copy pattern in CreateHash above. The prior
+	// fmt.Sprintf("%s%s", ...) required three allocations on the auth
+	// hot path.
+	hashInput := make([]byte, 0, len(decodedSalt)+len(secretKey))
+	hashInput = append(hashInput, decodedSalt...)
+	hashInput = append(hashInput, secretKey...)
+	hashedSecretKey := sha3.Sum512(hashInput)
 	if subtle.ConstantTimeCompare(decodedKey, hashedSecretKey[:]) == 0 {
 		return fmt.Errorf("secretKey hash does not match")
 	}
