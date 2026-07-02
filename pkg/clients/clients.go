@@ -78,7 +78,11 @@ func New(ctx context.Context, cfg *rest.Config, namespace string) (*Clients, err
 
 func (c *Clients) Start(ctx context.Context) error {
 	c.coreFactory.Start(ctx.Done())
-	c.coreFactory.WaitForCacheSync(ctx.Done())
+	for informerType, synced := range c.coreFactory.WaitForCacheSync(ctx.Done()) {
+		if !synced {
+			return fmt.Errorf("core informer %s did not sync before context cancelled", informerType)
+		}
+	}
 
 	if err := c.clusterFactory.Start(ctx, clusterControllerWorkers); err != nil {
 		return fmt.Errorf("starting cluster controllers: %w", err)
