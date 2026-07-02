@@ -150,7 +150,9 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 			updated := clusterUserAttribute.DeepCopy()
 			updated.NeedsRefresh = true
 			if _, err := h.clusterUserAttributes.Update(updated); err != nil {
-				return nil, fmt.Errorf("error updating clusterUserAttribute %s: %w", clusterUserAttribute.Name, err)
+				// NeedsRefresh is a best-effort hint to the refresh
+				// controller; do not fail authentication on it.
+				log.Errorf("error setting NeedsRefresh on clusterUserAttribute %s: %s", clusterUserAttribute.Name, err)
 			}
 		}
 	}
@@ -167,13 +169,18 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 // ClusterAuthToken.SecretKeyHash field into a Secret and clears the field on
 // the token. Only the token update is retried on conflict: a concurrent
 // migration by another pod (or the token controller) may have already cleared
-// the field, in which case a fresh cache read returns and nothing is updated.
+// the field, in which case a fresh API read returns and nothing is updated.
 // Returns the migrated token so callers can use it in place of their stale
 // copy; returns nil if another actor already migrated.
+//
+// The read inside the retry loop hits the API server directly rather than
+// the informer cache: after a Conflict the cache still holds the stale
+// resourceVersion (the informer watch hasn't caught up), so a cache re-read
+// would loop until DefaultRetry exhausts.
 func (h *KubeAPIHandlers) migrateHash(ctx context.Context, accessKey string) (*clusterv3.ClusterAuthToken, error) {
 	var migrated *clusterv3.ClusterAuthToken
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		token, err := h.clusterAuthTokensCache.Get(h.namespace, accessKey)
+		token, err := h.clusterAuthTokens.Get(h.namespace, accessKey, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}

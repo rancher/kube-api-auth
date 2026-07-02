@@ -114,7 +114,12 @@ func (f *fakeClusterUserAttributeCache) Get(namespace, name string) (*clusterv3.
 
 type fakeClusterAuthTokenClient struct {
 	clusterv3wr.ClusterAuthTokenClient
+	GetFunc    func(namespace, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error)
 	UpdateFunc func(*clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error)
+}
+
+func (f *fakeClusterAuthTokenClient) Get(namespace, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+	return f.GetFunc(namespace, name, opts)
 }
 
 func (f *fakeClusterAuthTokenClient) Update(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
@@ -619,6 +624,9 @@ func TestGetAndVerifyUser(t *testing.T) {
 					},
 				},
 				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+						return token, nil
+					},
 					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						updatedToken = obj.DeepCopy()
 						return obj, nil
@@ -681,6 +689,9 @@ func TestGetAndVerifyUser(t *testing.T) {
 					},
 				},
 				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+						return token, nil
+					},
 					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						return obj, nil
 					},
@@ -725,6 +736,11 @@ func TestGetAndVerifyUser(t *testing.T) {
 					return nil, fmt.Errorf("storage unavailable")
 				},
 			},
+			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
 		}
 
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
@@ -761,6 +777,9 @@ func TestGetAndVerifyUser(t *testing.T) {
 				},
 			},
 			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
 				UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 					return nil, fmt.Errorf("conflict")
 				},
@@ -942,7 +961,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		})
 	})
 
-	t.Run("user attribute update fails during refresh", func(t *testing.T) {
+	t.Run("user attribute update failure during refresh is silent", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
@@ -976,11 +995,16 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return nil, fmt.Errorf("update failed")
 					},
 				},
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
+					},
+				},
 			}
 
-			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
-			require.Error(t, err)
-			assert.ErrorContains(t, err, "update failed")
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
+			require.NoError(t, err)
+			assert.Equal(t, testUserName, result.UserName)
 		})
 	})
 
