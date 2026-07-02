@@ -11,7 +11,16 @@
       "ineffassign",
       "staticcheck",
       "unused"
-    ]
+    ],
+    "exclusions": {
+      "rules": [
+        {
+          "path": "pkg/auth/hashers/sha3\\.go",
+          "linters": ["govet"],
+          "text": "inline: Call of sha3\\.Sum512 should be inlined"
+        }
+      ]
+    }
   },
   "version": "2"
 }
