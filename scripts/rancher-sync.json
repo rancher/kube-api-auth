@@ -1,0 +1,61 @@
+{
+  "module": "github.com/rancher/rancher",
+  "revision": "v0.0.0-20260625140903-06a1727c1d54",
+  "files": [
+    {
+      "local": "pkg/auth/hashers/hashers.go",
+      "remote": "pkg/auth/tokens/hashers/hashers.go",
+      "sha256": "6773554d24dbb0eeef6e5531f1306dc1b69dda3703a83dfc67f6834b658a1cfb"
+    },
+    {
+      "local": "pkg/auth/hashers/scrypt.go",
+      "remote": "pkg/auth/tokens/hashers/scrypt.go",
+      "sha256": "0e060fba94ff2b120b0f780b636ca3bb3a60a2889fdead9cc5ceed0b24d4306e"
+    },
+    {
+      "local": "pkg/auth/hashers/sha256.go",
+      "remote": "pkg/auth/tokens/hashers/sha256.go",
+      "sha256": "421a25569435126d8ebd6d14308835719e1261f589c117c8f8e52fc8b68b045d"
+    },
+    {
+      "local": "pkg/auth/hashers/sha3.go",
+      "remote": "pkg/auth/tokens/hashers/sha3.go",
+      "sha256": "bac0c10e3c7c41de28f163369569982dc246e248b7b3faf773a185f1c0fc73b0"
+    },
+    {
+      "local": "pkg/auth/hashers/hashers_test.go",
+      "remote": "pkg/auth/tokens/hashers/hashers_test.go",
+      "sha256": "6988903d2b3f76a586a71eb48a391d9feab4dfc6b42ce2e22c41ae11a1bbff7a"
+    },
+    {
+      "local": "pkg/auth/hashers/scrypt_test.go",
+      "remote": "pkg/auth/tokens/hashers/scrypt_test.go",
+      "sha256": "928e02743547a4e5f59d41e423b1412c300d900bbe68cbba8047b03907dfce56"
+    },
+    {
+      "local": "pkg/auth/hashers/sha256_test.go",
+      "remote": "pkg/auth/tokens/hashers/sha256_test.go",
+      "sha256": "64d571dd382d4cf02f78c1ef040262d6f3b3c63bf38980a122b29b48065f3fd0"
+    },
+    {
+      "local": "pkg/auth/hashers/sha3_test.go",
+      "remote": "pkg/auth/tokens/hashers/sha3_test.go",
+      "sha256": "e492723b89c9c1700017f6ff77b1c195f6633ef8a2b660f3c24d5e23d7b496b7"
+    },
+    {
+      "local": "pkg/clusterauth/constants.go",
+      "remote": "pkg/controllers/managementuser/clusterauthtoken/common/constants.go",
+      "sha256": "ed14a27e6727f96ec779e15b8e8bb3605031a4b9630b4103342fc482cf049fe1"
+    },
+    {
+      "local": "pkg/clusterauth/verify.go",
+      "remote": "pkg/controllers/managementuser/clusterauthtoken/common/user.go",
+      "sha256": "c335f240eb73c5510fab5dfb245bfb7970c857032d9a57fffe65af2347b9b817"
+    },
+    {
+      "local": "pkg/clusterauth/verify_test.go",
+      "remote": "pkg/controllers/managementuser/clusterauthtoken/common/user_test.go",
+      "sha256": "c049c08ed8cf7ba5a2d1904b3d2cb0284cccd78f4c373a14ed1ccd3726f15375"
+    }
+  ]
+}
