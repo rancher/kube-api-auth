@@ -50,10 +50,6 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:   "create",
-			Action: createToken,
-		},
-		{
 			Name:   "serve",
 			Action: startService,
 			Flags: []cli.Flag{
@@ -78,11 +74,6 @@ func appBefore(c *cli.Context) error {
 		log.SetLevel(log.DebugLevel)
 	}
 	log.Debug("Debug enabled!")
-	return nil
-}
-
-func createToken(_ *cli.Context) error {
-	log.Info("Not yet implemented")
 	return nil
 }
 
