@@ -26,11 +26,3 @@ if [ -n "$dirty_files" ]; then
   echo "$dirty_files"
   exit 1
 fi
-
-if ! command -v golangci-lint; then
-  echo "Skipping golangci-lint (not installed)"
-  exit
-fi
-
-echo Running: golangci-lint
-golangci-lint run -v

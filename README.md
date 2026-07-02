@@ -83,7 +83,8 @@ The `Makefile` exposes each file under `scripts/` as a target
 ```
 make build                # static binary in ./bin
 make test                 # go test ./...
-make validate             # go mod tidy/verify, fmt, golangci-lint, clean-tree check
+make validate             # go mod tidy/verify, generate, fmt, then fail if the tree is dirty
+make lint                 # golangci-lint run
 make check-rancher-sync   # verify forked files match rancher/rancher pin
 make generate             # go generate ./... (regenerates pkg/generated)
 make package              # container image build
