@@ -11,18 +11,25 @@ go mod tidy
 echo Verifying modules
 go mod verify
 
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-  echo "Encountered dirty repo!"
+echo Regenerating code
+go generate ./...
+
+echo Formatting
+go fmt ./...
+
+dirty_files="$(git status --porcelain --untracked-files=no)"
+if [ -n "$dirty_files" ]; then
+  echo "Encountered dirty repo! Aborting."
+  echo "One of 'go mod tidy', 'go generate ./...', or 'go fmt ./...' produced changes."
+  echo "Run 'make validate' locally, commit the resulting diff, and re-push."
+  echo "Files with pending changes:"
+  echo "$dirty_files"
   exit 1
 fi
 
-PACKAGES="$(go list ./...)"
-echo Running: go fmt
-test -z "$(go fmt ${PACKAGES} | tee /dev/stderr)"
-
 if ! command -v golangci-lint; then
-    echo "Skipping validation on ARCHs other than linux amd64"
-    exit
+  echo "Skipping golangci-lint (not installed)"
+  exit
 fi
 
 echo Running: golangci-lint
