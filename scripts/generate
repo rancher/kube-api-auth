@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# Regenerate wrangler-based controller code under pkg/generated/ from the
+# CRD types imported in pkg/codegen/main.go (currently ClusterAuthToken
+# and ClusterUserAttribute).
+#
+# Run when the pinned rancher/rancher/pkg/apis version bumps and CRD
+# type signatures may have changed.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "Generating controllers under pkg/generated/"
+go run ./pkg/codegen
+
+echo "Discarding schemes.Register return in generated init blocks"
+find pkg/generated -name '*.go' -print0 \
+  | xargs -0 sed -i.bak -E 's|^(	)schemes\.Register\(|\1_ = schemes.Register(|'
+find pkg/generated -name '*.bak' -delete
+
+echo "gofmt pkg/generated"
+gofmt -w pkg/generated
