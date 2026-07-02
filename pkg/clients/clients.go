@@ -80,7 +80,7 @@ func (c *Clients) Start(ctx context.Context) error {
 	c.coreFactory.Start(ctx.Done())
 	for informerType, synced := range c.coreFactory.WaitForCacheSync(ctx.Done()) {
 		if !synced {
-			return fmt.Errorf("core informer %s did not sync before context cancelled", informerType)
+			return fmt.Errorf("core informer %s did not sync", informerType)
 		}
 	}
 
