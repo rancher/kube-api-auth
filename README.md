@@ -85,6 +85,7 @@ make build                # static binary in ./bin
 make test                 # go test ./...
 make validate             # go mod tidy/verify, fmt, golangci-lint, clean-tree check
 make check-rancher-sync   # verify forked files match rancher/rancher pin
+make generate             # go generate ./... (regenerates pkg/generated)
 make package              # container image build
 ```
 
