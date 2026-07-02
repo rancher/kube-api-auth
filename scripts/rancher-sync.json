@@ -5,57 +5,68 @@
     {
       "local": "pkg/auth/hashers/hashers.go",
       "remote": "pkg/auth/tokens/hashers/hashers.go",
-      "sha256": "6773554d24dbb0eeef6e5531f1306dc1b69dda3703a83dfc67f6834b658a1cfb"
+      "sha256": "6773554d24dbb0eeef6e5531f1306dc1b69dda3703a83dfc67f6834b658a1cfb",
+      "local_sha256": "10979da41e7b62a8ffc0ac68f8f46805df101a604550d163bd4dd373c474bcb2"
     },
     {
       "local": "pkg/auth/hashers/scrypt.go",
       "remote": "pkg/auth/tokens/hashers/scrypt.go",
-      "sha256": "0e060fba94ff2b120b0f780b636ca3bb3a60a2889fdead9cc5ceed0b24d4306e"
+      "sha256": "0e060fba94ff2b120b0f780b636ca3bb3a60a2889fdead9cc5ceed0b24d4306e",
+      "local_sha256": "b2e4e55537b69221e16fea06d08ecec335291abf75c93612ae27af4cbd44f628"
     },
     {
       "local": "pkg/auth/hashers/sha256.go",
       "remote": "pkg/auth/tokens/hashers/sha256.go",
-      "sha256": "421a25569435126d8ebd6d14308835719e1261f589c117c8f8e52fc8b68b045d"
+      "sha256": "421a25569435126d8ebd6d14308835719e1261f589c117c8f8e52fc8b68b045d",
+      "local_sha256": "0c39b316acf39a44ddb79fc33a46f23142fe562aab74b337df84c176b610550c"
     },
     {
       "local": "pkg/auth/hashers/sha3.go",
       "remote": "pkg/auth/tokens/hashers/sha3.go",
-      "sha256": "bac0c10e3c7c41de28f163369569982dc246e248b7b3faf773a185f1c0fc73b0"
+      "sha256": "bac0c10e3c7c41de28f163369569982dc246e248b7b3faf773a185f1c0fc73b0",
+      "local_sha256": "be99d9b07d79193e329094ac991396fa0c522227e4b496fb373bfb30898a102f"
     },
     {
       "local": "pkg/auth/hashers/hashers_test.go",
       "remote": "pkg/auth/tokens/hashers/hashers_test.go",
-      "sha256": "6988903d2b3f76a586a71eb48a391d9feab4dfc6b42ce2e22c41ae11a1bbff7a"
+      "sha256": "6988903d2b3f76a586a71eb48a391d9feab4dfc6b42ce2e22c41ae11a1bbff7a",
+      "local_sha256": "f6acb3eab583369656a45a137571d646fc070e082ac95cf0d3a84392a7ab1487"
     },
     {
       "local": "pkg/auth/hashers/scrypt_test.go",
       "remote": "pkg/auth/tokens/hashers/scrypt_test.go",
-      "sha256": "928e02743547a4e5f59d41e423b1412c300d900bbe68cbba8047b03907dfce56"
+      "sha256": "928e02743547a4e5f59d41e423b1412c300d900bbe68cbba8047b03907dfce56",
+      "local_sha256": "734edec758d0ce30a32ab92b3385b571c7ded83b0076212599645e1bfc063bf4"
     },
     {
       "local": "pkg/auth/hashers/sha256_test.go",
       "remote": "pkg/auth/tokens/hashers/sha256_test.go",
-      "sha256": "64d571dd382d4cf02f78c1ef040262d6f3b3c63bf38980a122b29b48065f3fd0"
+      "sha256": "64d571dd382d4cf02f78c1ef040262d6f3b3c63bf38980a122b29b48065f3fd0",
+      "local_sha256": "ed1dd55a464de9458c99161ec32195ccef82c4d3fcfc83d0034ee28dec4dfd4b"
     },
     {
       "local": "pkg/auth/hashers/sha3_test.go",
       "remote": "pkg/auth/tokens/hashers/sha3_test.go",
-      "sha256": "e492723b89c9c1700017f6ff77b1c195f6633ef8a2b660f3c24d5e23d7b496b7"
+      "sha256": "e492723b89c9c1700017f6ff77b1c195f6633ef8a2b660f3c24d5e23d7b496b7",
+      "local_sha256": "146e4b010823adbc88f77326114bc3f2054a99e61eebac7f5844b95a4505fbaa"
     },
     {
       "local": "pkg/clusterauth/constants.go",
       "remote": "pkg/controllers/managementuser/clusterauthtoken/common/constants.go",
-      "sha256": "ed14a27e6727f96ec779e15b8e8bb3605031a4b9630b4103342fc482cf049fe1"
+      "sha256": "ed14a27e6727f96ec779e15b8e8bb3605031a4b9630b4103342fc482cf049fe1",
+      "local_sha256": "f31a14c771e852b1005393eeb794630f06b4bd03f5d6cc91f40bf565d549b55a"
     },
     {
       "local": "pkg/clusterauth/verify.go",
       "remote": "pkg/controllers/managementuser/clusterauthtoken/common/user.go",
-      "sha256": "c335f240eb73c5510fab5dfb245bfb7970c857032d9a57fffe65af2347b9b817"
+      "sha256": "c335f240eb73c5510fab5dfb245bfb7970c857032d9a57fffe65af2347b9b817",
+      "local_sha256": "71780d0e715915a055583b01434ce3bc25c1b39f005cd06c094999c897efd010"
     },
     {
       "local": "pkg/clusterauth/verify_test.go",
       "remote": "pkg/controllers/managementuser/clusterauthtoken/common/user_test.go",
-      "sha256": "c049c08ed8cf7ba5a2d1904b3d2cb0284cccd78f4c373a14ed1ccd3726f15375"
+      "sha256": "c049c08ed8cf7ba5a2d1904b3d2cb0284cccd78f4c373a14ed1ccd3726f15375",
+      "local_sha256": "3c3fd44f29151f93d594eb77a46869b9619ea795f064346de53a82bc163a9b9f"
     }
   ]
 }
