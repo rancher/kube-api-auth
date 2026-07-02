@@ -55,7 +55,7 @@ func TestGetHasherForHash(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.IsTypef(t, hasher, test.wantHasher, "did not get the expected hasher")
+				assert.IsTypef(t, test.wantHasher, hasher, "did not get the expected hasher")
 			}
 		})
 	}
