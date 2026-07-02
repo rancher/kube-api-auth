@@ -91,8 +91,7 @@ make package              # container image build
 ## Relationship to rancher/rancher
 
 `kube-api-auth` used to import the whole `github.com/rancher/rancher`
-Go module. It no longer does. The current direct dependency footprint
-from that org is:
+Go module. It no longer does. The current direct dependency footprint is:
 
 - `github.com/rancher/rancher/pkg/apis` — the CRD types
   (`ClusterAuthToken`, `ClusterUserAttribute`). This is a *separate* Go
@@ -110,12 +109,12 @@ Two source trees under `pkg/` are **forks** of Rancher-internal code:
   `rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common`.
 
 Forking these lets us drop the full `rancher/rancher` module dep, but
-means we're on the hook for pulling in upstream fixes (algorithm
-hardening, security patches). The pinned upstream revision and per-file
-SHA-256 hashes live in [`scripts/rancher-sync.json`](scripts/rancher-sync.json).
+means we have to pull in upstream fixes (algorithm hardening, security patches).
+The pinned upstream revision and per-file SHA-256 hashes live in 
+[`scripts/rancher-sync.json`](scripts/rancher-sync.json).
 CI runs [`scripts/check-rancher-sync`](scripts/check-rancher-sync) on
-every push and fails when upstream files change since the pin. To
-resolve:
+every push and fails when upstream files change since the pin.
+To resolve:
 
 ```
 scripts/check-rancher-sync           # shows the diff

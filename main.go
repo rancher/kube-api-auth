@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	kubeapiauth "github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/service"
@@ -78,5 +81,7 @@ func appBefore(c *cli.Context) error {
 }
 
 func startService(_ *cli.Context) error {
-	return service.Serve(appConfig.Listen, appConfig.Namespace, appConfig.Kubeconfig)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return service.Serve(ctx, appConfig.Listen, appConfig.Namespace, appConfig.Kubeconfig)
 }

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -12,10 +14,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func Serve(listen, namespace, kubeConfig string) error {
-	log.Info("Starting Rancher Kube-API-Auth service on ", listen)
+const (
+	readHeaderTimeout = 10 * time.Second
+	readTimeout       = 30 * time.Second
+	writeTimeout      = 30 * time.Second
+	idleTimeout       = 120 * time.Second
+	shutdownTimeout   = 15 * time.Second
+)
 
-	ctx := context.Background()
+func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
+	log.Info("Starting Rancher Kube-API-Auth service on ", listen)
 
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
 	if err != nil {
@@ -27,21 +35,42 @@ func Serve(listen, namespace, kubeConfig string) error {
 		return err
 	}
 
-	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, c)
-	router := RouteContext(kubeAPIHandlers)
+	log.Info("Starting informers and waiting for caches to sync")
+	if err := c.Start(ctx); err != nil {
+		return fmt.Errorf("starting cluster clients: %w", err)
+	}
 
+	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, c)
+	srv := &http.Server{
+		Addr:              listen,
+		Handler:           RouteContext(kubeAPIHandlers),
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
+
+	errCh := make(chan error, 1)
 	go func() {
-		for {
-			if err := c.Start(ctx); err != nil {
-				log.Error(err)
-				time.Sleep(2 * time.Second)
-			} else {
-				break
-			}
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
 		}
+		close(errCh)
 	}()
 
-	return http.ListenAndServe(listen, router)
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		log.Info("Shutdown signal received, draining connections")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("http server shutdown: %w", err)
+	}
+	return nil
 }
 
 func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *mux.Router {
