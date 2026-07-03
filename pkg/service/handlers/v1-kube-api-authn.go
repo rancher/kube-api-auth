@@ -198,7 +198,10 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 			updated := clusterUserAttribute.DeepCopy()
 			updated.NeedsRefresh = true
 			if _, err := h.clusterUserAttribute.Update(updated); err != nil {
-				return nil, fmt.Errorf("error updating clusterUserAttribute %s: %w", clusterUserAttribute.Name, err)
+				// NeedsRefresh is a best-effort hint to the refresh
+				// controller and has no bearing on whether the token
+				// is authentic. Log and continue.
+				log.Errorf("error setting NeedsRefresh on clusterUserAttribute %s: %s", clusterUserAttribute.Name, err)
 			}
 		}
 	}
