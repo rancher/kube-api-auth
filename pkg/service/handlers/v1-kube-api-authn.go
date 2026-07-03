@@ -106,7 +106,20 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 	var clusterAuthToken *clusterv3.ClusterAuthToken
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		clusterAuthTokenLocal, err := h.clusterAuthTokensLister.Get(h.namespace, accessKey)
+		// After a 409 conflict the informer cache still holds the
+		// stale resourceVersion until the watch catches up, so a
+		// cache read here would loop with the same version and 409
+		// again until retries exhaust. First attempt reads from the
+		// cache for speed; retries fall back to a direct API Get.
+		var (
+			clusterAuthTokenLocal *clusterv3.ClusterAuthToken
+			err                   error
+		)
+		if clusterAuthToken == nil {
+			clusterAuthTokenLocal, err = h.clusterAuthTokensLister.Get(h.namespace, accessKey)
+		} else {
+			clusterAuthTokenLocal, err = h.clusterAuthTokens.GetNamespaced(h.namespace, accessKey, metav1.GetOptions{})
+		}
 		if err != nil {
 			return err
 		}
