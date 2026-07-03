@@ -19,7 +19,8 @@ Keep the table well-formed: one row per branch, columns in the order shown.
 
 | Branch              | Minor   | Rancher Versions     | Status |
 |---------------------|---------|----------------------|--------|
-| main                | v0.15   | v2.15                | active |
+| main                | v0.16   | v2.16                | active |
+| release/v0.15       | v0.15   | v2.15                | active |
 | release/v0.13       | v0.13   | v2.13, v2.14         | active |
 | release/v0.10       | v0.10   | v2.10, v2.11, v2.12  | active |
 
@@ -38,5 +39,5 @@ authoritative for per-patch precision).
 
 | kube-api-auth Tag | Rancher Minors      |
 |-------------------|---------------------|
-| v0.2.6            | v2.13, v2.14, v2.15 |
+| v0.13.0           | v2.13, v2.14        |
 | v0.2.4            | v2.10, v2.11, v2.12 |
