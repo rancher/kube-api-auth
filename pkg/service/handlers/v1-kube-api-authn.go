@@ -163,12 +163,18 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 			}
 		}
 
-		// Update shadow token to complete the migration
+		// Update shadow token to complete the migration. DeepCopy the
+		// cache object to avoid mutating shared informer state, and
+		// re-assign the outer clusterAuthToken so the later
+		// LastUsedAt update doesn't send the pre-migration hash back.
+		clusterAuthTokenLocal = clusterAuthTokenLocal.DeepCopy()
 		clusterAuthTokenLocal.SecretKeyHash = "" // nolint:staticcheck
-		if _, err = h.clusterAuthTokens.Update(clusterAuthTokenLocal); err != nil {
+		updated, err := h.clusterAuthTokens.Update(clusterAuthTokenLocal)
+		if err != nil {
 			log.Errorf("error migrating clusterAuthToken %s: %s", clusterAuthTokenLocal.Name, err)
 			return err
 		}
+		clusterAuthToken = updated
 
 		return nil
 	})
@@ -189,8 +195,9 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 		}
 
 		if refresh.Add(refreshPeriod).Before(now) {
-			clusterUserAttribute.NeedsRefresh = true
-			if _, err := h.clusterUserAttribute.Update(clusterUserAttribute); err != nil {
+			updated := clusterUserAttribute.DeepCopy()
+			updated.NeedsRefresh = true
+			if _, err := h.clusterUserAttribute.Update(updated); err != nil {
 				return nil, fmt.Errorf("error updating clusterUserAttribute %s: %w", clusterUserAttribute.Name, err)
 			}
 		}
@@ -207,12 +214,13 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 			}
 		}
 
+		updated := clusterAuthToken.DeepCopy()
 		lastUsedAt := metav1.NewTime(now)
-		clusterAuthToken.LastUsedAt = &lastUsedAt
+		updated.LastUsedAt = &lastUsedAt
 
-		if _, err = h.clusterAuthTokens.Update(clusterAuthToken); err != nil {
+		if _, err = h.clusterAuthTokens.Update(updated); err != nil {
 			// Best-effort update. Don't retry or fail the request.
-			log.Errorf("error updating clusterAuthToken %s: %s", clusterAuthToken.Name, err)
+			log.Errorf("error updating clusterAuthToken %s: %s", updated.Name, err)
 		}
 	}()
 
