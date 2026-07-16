@@ -50,7 +50,7 @@ replace (
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/rancher/norman v0.9.7
+	github.com/rancher/norman v0.9.9
 	github.com/rancher/rancher v0.0.0-20260625140903-06a1727c1d54
 	github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54
 	github.com/sirupsen/logrus v1.9.4
@@ -195,9 +195,9 @@ require (
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260523011958-0a33c5d7ca68 // indirect
 	google.golang.org/grpc v1.81.1 // indirect
