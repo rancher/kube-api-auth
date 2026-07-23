@@ -11,8 +11,8 @@
 #     as unchanged.
 #
 # Usage:
-#   scripts/check-rancher-sync          # verify both shas match; exit 1 on drift
-#   scripts/check-rancher-sync update   # recompute both shas into the manifest
+#   scripts/check-rancher-sync          # verify both file hashes match; exit 1 on drift
+#   scripts/check-rancher-sync update   # recompute both file hashes into the manifest
 #
 # When drift is detected, either:
 #   1) Sync local files with upstream, then run: scripts/check-rancher-sync update
