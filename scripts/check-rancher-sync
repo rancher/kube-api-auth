@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#
+# Verify that files forked from github.com/rancher/rancher still match
+# both the pinned upstream revision AND the local content recorded at
+# the last known sync point. Runs in CI to catch:
+#
+#   - Upstream changes since the pin (algorithm fixes, security
+#     patches) that this repo should adopt or consciously skip.
+#   - Silent local edits to a forked file, which would otherwise slip
+#     past review because the drift check would still show upstream
+#     as unchanged.
+#
+# Usage:
+#   scripts/check-rancher-sync          # verify both file hashes match; exit 1 on drift
+#   scripts/check-rancher-sync update   # recompute both file hashes into the manifest
+#
+# When drift is detected, either:
+#   1) Sync local files with upstream, then run: scripts/check-rancher-sync update
+#   2) Bump "revision" in scripts/rancher-sync.json, review the diff for
+#      material changes, then run: scripts/check-rancher-sync update
+#   3) Deliberately keep the local fork ahead of upstream: adopt the
+#      new local content, note the reason, then run 'update'.
+set -euo pipefail
+
+MANIFEST=${MANIFEST:-scripts/rancher-sync.json}
+MODE=${1:-check}
+
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "manifest not found: $MANIFEST" >&2
+  exit 2
+fi
+
+for cmd in jq go awk; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "required command not found: $cmd" >&2
+    exit 2
+  fi
+done
+
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+module=$(jq -r .module "$MANIFEST")
+revision=$(jq -r .revision "$MANIFEST")
+
+echo "Resolving ${module}@${revision}..." >&2
+dir=$(GOFLAGS=-mod=mod go mod download -json "${module}@${revision}" | jq -r .Dir)
+if [[ -z "$dir" || ! -d "$dir" ]]; then
+  echo "failed to resolve module directory for ${module}@${revision}" >&2
+  exit 2
+fi
+
+fail=0
+tmp_manifest=$(mktemp)
+trap 'rm -f "$tmp_manifest"' EXIT
+cp "$MANIFEST" "$tmp_manifest"
+
+count=$(jq '.files | length' "$MANIFEST")
+for i in $(seq 0 $((count - 1))); do
+  local_path=$(jq -r ".files[$i].local"        "$MANIFEST")
+  remote=$(jq     -r ".files[$i].remote"       "$MANIFEST")
+  expected_upstream=$(jq -r ".files[$i].sha256"       "$MANIFEST")
+  expected_local=$(jq    -r ".files[$i].local_sha256" "$MANIFEST")
+
+  remote_full="$dir/$remote"
+  if [[ ! -f "$remote_full" ]]; then
+    echo "MISSING UPSTREAM: $remote" >&2
+    fail=1
+    continue
+  fi
+  if [[ ! -f "$local_path" ]]; then
+    echo "MISSING LOCAL: $local_path" >&2
+    fail=1
+    continue
+  fi
+
+  actual_upstream=$(sha256 "$remote_full")
+  actual_local=$(sha256 "$local_path")
+
+  if [[ "$MODE" == "update" ]]; then
+    jq --arg sha "$actual_upstream" --arg lsha "$actual_local" \
+      ".files[$i].sha256 = \$sha | .files[$i].local_sha256 = \$lsha" \
+      "$tmp_manifest" > "${tmp_manifest}.new"
+    mv "${tmp_manifest}.new" "$tmp_manifest"
+    if [[ "$actual_upstream" != "$expected_upstream" ]]; then
+      echo "updated upstream: $remote ($expected_upstream -> $actual_upstream)"
+    fi
+    if [[ "$actual_local" != "$expected_local" ]]; then
+      echo "updated local: $local_path ($expected_local -> $actual_local)"
+    fi
+    continue
+  fi
+
+  if [[ "$actual_upstream" != "$expected_upstream" ]]; then
+    echo "UPSTREAM DRIFT: $remote"
+    echo "  expected sha256: $expected_upstream"
+    echo "  actual sha256:   $actual_upstream"
+    echo "  --- diff (local $local_path vs upstream ${module}@${revision}:$remote) ---"
+    diff -u "$local_path" "$remote_full" || true
+    echo
+    fail=1
+  fi
+
+  if [[ "$actual_local" != "$expected_local" ]]; then
+    echo "LOCAL DRIFT: $local_path"
+    echo "  expected sha256: $expected_local"
+    echo "  actual sha256:   $actual_local"
+    echo "  (a forked file was modified without updating the manifest)"
+    echo
+    fail=1
+  fi
+done
+
+if [[ "$MODE" == "update" ]]; then
+  mv "$tmp_manifest" "$MANIFEST"
+  trap - EXIT
+  jq . "$MANIFEST" > "${MANIFEST}.pretty"
+  mv "${MANIFEST}.pretty" "$MANIFEST"
+  echo "wrote $MANIFEST"
+  exit 0
+fi
+
+if [[ $fail -ne 0 ]]; then
+  cat >&2 <<'EOF'
+
+Drift detected against github.com/rancher/rancher. Review the diff(s) above,
+then either:
+  1) Sync local files with upstream (or intentionally diverge), and run:
+       scripts/check-rancher-sync update
+  2) Bump "revision" in scripts/rancher-sync.json to the intended upstream
+     revision, decide file-by-file which changes to adopt, and run:
+       scripts/check-rancher-sync update
+EOF
+  exit 1
+fi
+
+echo "no drift; ${count} file(s) match ${module}@${revision}"

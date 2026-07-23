@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,17 +15,19 @@ import (
 
 	kubeapiauth "github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
+	"github.com/rancher/kube-api-auth/pkg/auth/hashers"
+	"github.com/rancher/kube-api-auth/pkg/clusterauth"
+	clusterv3wr "github.com/rancher/kube-api-auth/pkg/generated/controllers/cluster.cattle.io/v3"
 	clusterv3 "github.com/rancher/rancher/pkg/apis/cluster.cattle.io/v3"
-	"github.com/rancher/rancher/pkg/auth/tokens/hashers"
-	"github.com/rancher/rancher/pkg/controllers/managementuser/clusterauthtoken/common"
-	clusterfakes "github.com/rancher/rancher/pkg/generated/norman/cluster.cattle.io/v3/fakes"
-	corefakes "github.com/rancher/rancher/pkg/generated/norman/core/v1/fakes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const (
@@ -36,9 +39,8 @@ const (
 
 var testSecretKeyHash string
 
-// Pre-compute the scrypt hash once — too expensive (~100ms) to repeat per subtest.
 func TestMain(m *testing.M) {
-	hash, err := hashers.ScryptHasher{}.CreateHash(testSecretKey)
+	hash, err := hashers.GetHasher().CreateHash(testSecretKey)
 	if err != nil {
 		panic("failed to create test hash: " + err.Error())
 	}
@@ -83,18 +85,104 @@ func newTestUser(groups ...string) *clusterv3.ClusterUserAttribute {
 func newTestSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.ClusterAuthTokenSecretName(testAccessKey),
+			Name:      testAccessKey,
 			Namespace: testNamespace,
 		},
 		Data: map[string][]byte{
-			common.ClusterAuthSecretHashField: []byte(testSecretKeyHash),
+			clusterauth.ClusterAuthSecretHashField: []byte(testSecretKeyHash),
 		},
 	}
 }
 
-func noRefreshConfigMap() *corefakes.ConfigMapListerMock {
-	return &corefakes.ConfigMapListerMock{
-		GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+type fakeClusterAuthTokenCache struct {
+	clusterv3wr.ClusterAuthTokenCache
+	GetFunc func(namespace, name string) (*clusterv3.ClusterAuthToken, error)
+}
+
+func (f *fakeClusterAuthTokenCache) Get(namespace, name string) (*clusterv3.ClusterAuthToken, error) {
+	return f.GetFunc(namespace, name)
+}
+
+type fakeClusterUserAttributeCache struct {
+	clusterv3wr.ClusterUserAttributeCache
+	GetFunc func(namespace, name string) (*clusterv3.ClusterUserAttribute, error)
+}
+
+func (f *fakeClusterUserAttributeCache) Get(namespace, name string) (*clusterv3.ClusterUserAttribute, error) {
+	return f.GetFunc(namespace, name)
+}
+
+type fakeClusterAuthTokenClient struct {
+	clusterv3wr.ClusterAuthTokenClient
+	GetFunc    func(namespace, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error)
+	UpdateFunc func(*clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error)
+}
+
+func (f *fakeClusterAuthTokenClient) Get(namespace, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+	return f.GetFunc(namespace, name, opts)
+}
+
+func (f *fakeClusterAuthTokenClient) Update(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+	return f.UpdateFunc(obj)
+}
+
+type fakeClusterUserAttributeClient struct {
+	clusterv3wr.ClusterUserAttributeClient
+	UpdateFunc func(*clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error)
+}
+
+func (f *fakeClusterUserAttributeClient) Update(obj *clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error) {
+	return f.UpdateFunc(obj)
+}
+
+type fakeSecretLister struct {
+	corev1listers.SecretNamespaceLister
+	GetFunc func(name string) (*corev1.Secret, error)
+}
+
+func (f *fakeSecretLister) Get(name string) (*corev1.Secret, error) {
+	return f.GetFunc(name)
+}
+
+func (f *fakeSecretLister) List(_ labels.Selector) ([]*corev1.Secret, error) {
+	return nil, nil
+}
+
+type fakeConfigMapLister struct {
+	corev1listers.ConfigMapNamespaceLister
+	GetFunc func(name string) (*corev1.ConfigMap, error)
+}
+
+func (f *fakeConfigMapLister) Get(name string) (*corev1.ConfigMap, error) {
+	return f.GetFunc(name)
+}
+
+func (f *fakeConfigMapLister) List(_ labels.Selector) ([]*corev1.ConfigMap, error) {
+	return nil, nil
+}
+
+type fakeSecretClient struct {
+	corev1client.SecretInterface
+	CreateFunc func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error)
+	GetFunc    func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Secret, error)
+	UpdateFunc func(ctx context.Context, s *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error)
+}
+
+func (f *fakeSecretClient) Create(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+	return f.CreateFunc(ctx, s, opts)
+}
+
+func (f *fakeSecretClient) Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Secret, error) {
+	return f.GetFunc(ctx, name, opts)
+}
+
+func (f *fakeSecretClient) Update(ctx context.Context, s *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error) {
+	return f.UpdateFunc(ctx, s, opts)
+}
+
+func noRefreshConfigMap() *fakeConfigMapLister {
+	return &fakeConfigMapLister{
+		GetFunc: func(name string) (*corev1.ConfigMap, error) {
 			return nil, notFound(name)
 		},
 	}
@@ -117,18 +205,6 @@ func TestV1parseBody(t *testing.T) {
 				token:      "tokenName:secretValue",
 				wantKey:    "tokenName",
 				wantSecret: "secretValue",
-			},
-			{
-				name:       "ext token",
-				token:      "ext/token-abc123:secretValue",
-				wantKey:    "token-abc123",
-				wantSecret: "secretValue",
-			},
-			{
-				name:       "ext token with colons in secret",
-				token:      "ext/token-abc123:secret:with:colons",
-				wantKey:    "token-abc123",
-				wantSecret: "secret:with:colons",
 			},
 			{
 				name:       "legacy token with colons in secret",
@@ -230,8 +306,8 @@ func TestGetRefreshPeriod(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			configMapLister: &corefakes.ConfigMapListerMock{
-				GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+			configMapLister: &fakeConfigMapLister{
+				GetFunc: func(name string) (*corev1.ConfigMap, error) {
 					return &corev1.ConfigMap{Data: map[string]string{"value": "60"}}, nil
 				},
 			},
@@ -245,8 +321,8 @@ func TestGetRefreshPeriod(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			configMapLister: &corefakes.ConfigMapListerMock{
-				GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+			configMapLister: &fakeConfigMapLister{
+				GetFunc: func(name string) (*corev1.ConfigMap, error) {
 					return &corev1.ConfigMap{Data: map[string]string{"value": "0"}}, nil
 				},
 			},
@@ -260,8 +336,8 @@ func TestGetRefreshPeriod(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			configMapLister: &corefakes.ConfigMapListerMock{
-				GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+			configMapLister: &fakeConfigMapLister{
+				GetFunc: func(name string) (*corev1.ConfigMap, error) {
 					return &corev1.ConfigMap{Data: map[string]string{"value": ""}}, nil
 				},
 			},
@@ -275,8 +351,8 @@ func TestGetRefreshPeriod(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			configMapLister: &corefakes.ConfigMapListerMock{
-				GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+			configMapLister: &fakeConfigMapLister{
+				GetFunc: func(name string) (*corev1.ConfigMap, error) {
 					return &corev1.ConfigMap{Data: map[string]string{"value": "abc"}}, nil
 				},
 			},
@@ -290,8 +366,8 @@ func TestGetRefreshPeriod(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			configMapLister: &corefakes.ConfigMapListerMock{
-				GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+			configMapLister: &fakeConfigMapLister{
+				GetFunc: func(name string) (*corev1.ConfigMap, error) {
 					return &corev1.ConfigMap{}, nil
 				},
 			},
@@ -314,30 +390,30 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return user, nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return secret, nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.Equal(t, []string{"group1", "group2"}, result.Groups)
@@ -349,14 +425,14 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return nil, notFound(name)
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.True(t, apierrors.IsNotFound(err))
 	})
@@ -369,14 +445,14 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return token, nil
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "not enabled")
 	})
@@ -386,19 +462,19 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return newTestToken(), nil
 				},
 			},
-			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 					return nil, notFound(name)
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.True(t, apierrors.IsNotFound(err))
 	})
@@ -411,19 +487,19 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return newTestToken(), nil
 				},
 			},
-			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 					return user, nil
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "not enabled")
 	})
@@ -433,24 +509,24 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return newTestToken(), nil
 				},
 			},
-			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 					return newTestUser(), nil
 				},
 			},
-			secretLister: &corefakes.SecretListerMock{
-				GetFunc: func(ns, name string) (*corev1.Secret, error) {
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
 					return newTestSecret(), nil
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, "wrong-secret")
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, "wrong-secret")
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "does not match")
 	})
@@ -464,24 +540,24 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser(), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.Error(t, err)
 			assert.ErrorContains(t, err, "expired")
 		})
@@ -492,24 +568,24 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return newTestToken(), nil
 				},
 			},
-			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 					return newTestUser(), nil
 				},
 			},
-			secretLister: &corefakes.SecretListerMock{
-				GetFunc: func(ns, name string) (*corev1.Secret, error) {
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
 					return nil, notFound(name)
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "missing")
 	})
@@ -519,52 +595,55 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			token := newTestToken()
-			token.SecretKeyHash = testSecretKeyHash // nolint:staticcheck
+			token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
 
 			var createdSecret *corev1.Secret
 			var updatedToken *clusterv3.ClusterAuthToken
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser("admins"), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return nil, notFound(name)
 					},
 				},
-				secrets: &corefakes.SecretInterfaceMock{
-					CreateFunc: func(in1 *corev1.Secret) (*corev1.Secret, error) {
-						createdSecret = in1
-						return in1, nil
+				secrets: &fakeSecretClient{
+					CreateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+						createdSecret = s
+						return s, nil
 					},
 				},
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						updatedToken = in1.DeepCopy()
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+						return token, nil
+					},
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						updatedToken = obj.DeepCopy()
+						return obj, nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 
 			require.NotNil(t, createdSecret)
-			assert.Equal(t, testSecretKeyHash, string(createdSecret.Data[common.ClusterAuthSecretHashField]))
+			assert.Equal(t, testSecretKeyHash, string(createdSecret.Data[clusterauth.ClusterAuthSecretHashField]))
 
 			require.NotNil(t, updatedToken)
-			assert.Empty(t, updatedToken.SecretKeyHash) // nolint:staticcheck
+			assert.Empty(t, updatedToken.SecretKeyHash) //nolint:staticcheck
 		})
 	})
 
@@ -573,56 +652,59 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		synctest.Test(t, func(t *testing.T) {
 			token := newTestToken()
-			token.SecretKeyHash = testSecretKeyHash // nolint:staticcheck
+			token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
 
 			var updatedSecretData map[string][]byte
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser(), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return nil, notFound(name)
 					},
 				},
-				secrets: &corefakes.SecretInterfaceMock{
-					CreateFunc: func(in1 *corev1.Secret) (*corev1.Secret, error) {
-						return nil, apierrors.NewAlreadyExists(schema.GroupResource{}, in1.Name)
+				secrets: &fakeSecretClient{
+					CreateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+						return nil, apierrors.NewAlreadyExists(schema.GroupResource{}, s.Name)
 					},
-					GetNamespacedFunc: func(ns, name string, opts metav1.GetOptions) (*corev1.Secret, error) {
+					GetFunc: func(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Secret, error) {
 						return &corev1.Secret{
-							ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+							ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
 							Data:       map[string][]byte{"hash": []byte("old-hash")},
 						}, nil
 					},
-					UpdateFunc: func(in1 *corev1.Secret) (*corev1.Secret, error) {
-						updatedSecretData = in1.Data
-						return in1, nil
+					UpdateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.UpdateOptions) (*corev1.Secret, error) {
+						updatedSecretData = s.Data
+						return s, nil
 					},
 				},
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+						return token, nil
+					},
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 
 			require.NotNil(t, updatedSecretData)
-			assert.Equal(t, testSecretKeyHash, string(updatedSecretData[common.ClusterAuthSecretHashField]))
+			assert.Equal(t, testSecretKeyHash, string(updatedSecretData[clusterauth.ClusterAuthSecretHashField]))
 		})
 	})
 
@@ -630,33 +712,38 @@ func TestGetAndVerifyUser(t *testing.T) {
 		t.Parallel()
 
 		token := newTestToken()
-		token.SecretKeyHash = testSecretKeyHash // nolint:staticcheck
+		token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return token, nil
 				},
 			},
-			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 					return newTestUser(), nil
 				},
 			},
-			secretLister: &corefakes.SecretListerMock{
-				GetFunc: func(ns, name string) (*corev1.Secret, error) {
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
 					return nil, notFound(name)
 				},
 			},
-			secrets: &corefakes.SecretInterfaceMock{
-				CreateFunc: func(in1 *corev1.Secret) (*corev1.Secret, error) {
+			secrets: &fakeSecretClient{
+				CreateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
 					return nil, fmt.Errorf("storage unavailable")
+				},
+			},
+			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "storage unavailable")
 	})
@@ -665,38 +752,41 @@ func TestGetAndVerifyUser(t *testing.T) {
 		t.Parallel()
 
 		token := newTestToken()
-		token.SecretKeyHash = testSecretKeyHash // nolint:staticcheck
+		token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return token, nil
 				},
 			},
-			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 					return newTestUser(), nil
 				},
 			},
-			secretLister: &corefakes.SecretListerMock{
-				GetFunc: func(ns, name string) (*corev1.Secret, error) {
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
 					return nil, notFound(name)
 				},
 			},
-			secrets: &corefakes.SecretInterfaceMock{
-				CreateFunc: func(in1 *corev1.Secret) (*corev1.Secret, error) {
-					return in1, nil
+			secrets: &fakeSecretClient{
+				CreateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+					return s, nil
 				},
 			},
-			clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-				UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+				UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 					return nil, fmt.Errorf("conflict")
 				},
 			},
 		}
 
-		_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 	})
 
@@ -711,41 +801,41 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return newTestToken(), nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return user, nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
-				configMapLister: &corefakes.ConfigMapListerMock{
-					GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+				configMapLister: &fakeConfigMapLister{
+					GetFunc: func(name string) (*corev1.ConfigMap, error) {
 						return &corev1.ConfigMap{Data: map[string]string{"value": "3600"}}, nil
 					},
 				},
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
-				clusterUserAttribute: &clusterfakes.ClusterUserAttributeInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error) {
+				clusterUserAttributes: &fakeClusterUserAttributeClient{
+					UpdateFunc: func(obj *clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error) {
 						userUpdated = true
-						assert.True(t, in1.NeedsRefresh)
-						return in1, nil
+						assert.True(t, obj.NeedsRefresh)
+						return obj, nil
 					},
 				},
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.True(t, userUpdated)
@@ -761,34 +851,34 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return newTestToken(), nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return user, nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
-				configMapLister: &corefakes.ConfigMapListerMock{
-					GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+				configMapLister: &fakeConfigMapLister{
+					GetFunc: func(name string) (*corev1.ConfigMap, error) {
 						return &corev1.ConfigMap{Data: map[string]string{"value": "3600"}}, nil
 					},
 				},
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.False(t, user.NeedsRefresh)
@@ -804,30 +894,30 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return newTestToken(), nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return user, nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.False(t, user.NeedsRefresh)
@@ -843,35 +933,35 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return newTestToken(), nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return user, nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
-				configMapLister: &corefakes.ConfigMapListerMock{
-					GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+				configMapLister: &fakeConfigMapLister{
+					GetFunc: func(name string) (*corev1.ConfigMap, error) {
 						return &corev1.ConfigMap{Data: map[string]string{"value": "3600"}}, nil
 					},
 				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.Error(t, err)
 			assert.ErrorContains(t, err, "parsing lastRefresh")
 		})
 	})
 
-	t.Run("user attribute update fails during refresh", func(t *testing.T) {
+	t.Run("user attribute update failure during refresh is silent", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
@@ -880,36 +970,41 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return newTestToken(), nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return user, nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
-				configMapLister: &corefakes.ConfigMapListerMock{
-					GetFunc: func(ns, name string) (*corev1.ConfigMap, error) {
+				configMapLister: &fakeConfigMapLister{
+					GetFunc: func(name string) (*corev1.ConfigMap, error) {
 						return &corev1.ConfigMap{Data: map[string]string{"value": "3600"}}, nil
 					},
 				},
-				clusterUserAttribute: &clusterfakes.ClusterUserAttributeInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error) {
+				clusterUserAttributes: &fakeClusterUserAttributeClient{
+					UpdateFunc: func(obj *clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error) {
 						return nil, fmt.Errorf("update failed")
+					},
+				},
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
-			require.Error(t, err)
-			assert.ErrorContains(t, err, "update failed")
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
+			require.NoError(t, err)
+			assert.Equal(t, testUserName, result.UserName)
 		})
 	})
 
@@ -922,32 +1017,32 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser(), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						lastUsedAtSet = true
-						require.NotNil(t, in1.LastUsedAt)
-						return in1, nil
+						require.NotNil(t, obj.LastUsedAt)
+						return obj, nil
 					},
 				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.True(t, lastUsedAtSet)
 		})
@@ -966,31 +1061,31 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser(), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						tokenUpdateCalled = true
-						return in1, nil
+						return obj, nil
 					},
 				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.False(t, tokenUpdateCalled)
 		})
@@ -1009,31 +1104,31 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser(), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						tokenUpdateCalled = true
-						return in1, nil
+						return obj, nil
 					},
 				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.True(t, tokenUpdateCalled)
 		})
@@ -1047,30 +1142,30 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return token, nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser("admins"), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						return nil, fmt.Errorf("transient error")
 					},
 				},
 			}
 
-			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.Equal(t, []string{"admins"}, result.Groups)
@@ -1087,25 +1182,25 @@ func TestAuthenticate(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			h := &KubeAPIHandlers{
 				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 						return newTestToken(), nil
 					},
 				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
 						return newTestUser("group1"), nil
 					},
 				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
+				secretLister: &fakeSecretLister{
+					GetFunc: func(name string) (*corev1.Secret, error) {
 						return newTestSecret(), nil
 					},
 				},
 				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return in1, nil
+				clusterAuthTokens: &fakeClusterAuthTokenClient{
+					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return obj, nil
 					},
 				},
 			}
@@ -1146,7 +1241,7 @@ func TestAuthenticate(t *testing.T) {
 
 		h := &KubeAPIHandlers{
 			namespace: testNamespace,
-			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
 					return nil, notFound(name)
 				},

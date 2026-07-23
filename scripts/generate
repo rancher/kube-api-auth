@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+#
+# Regenerate wrangler-based controller code under pkg/generated/ from the
+# //go:generate directives at the repo root. Run after bumping the pinned
+# rancher/rancher/pkg/apis version, or after changing which CRD types
+# pkg/codegen/main.go passes to wrangler.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+go generate ./...

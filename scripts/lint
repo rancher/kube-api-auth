@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# Run golangci-lint with the repo's .golangci.json config.
+# CI runs the linter via the golangci-lint-action for caching and PR
+# annotations; this script exists so 'make lint' does the same thing
+# locally without pulling in tidy/generate/fmt.
+set -e
+
+cd $(dirname $0)/..
+
+if ! command -v golangci-lint; then
+  echo "golangci-lint not installed; see https://golangci-lint.run/welcome/install/" >&2
+  exit 1
+fi
+
+golangci-lint run -v

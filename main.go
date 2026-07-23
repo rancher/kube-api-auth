@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	kubeapiauth "github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/service"
@@ -50,10 +53,6 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:   "create",
-			Action: createToken,
-		},
-		{
 			Name:   "serve",
 			Action: startService,
 			Flags: []cli.Flag{
@@ -81,11 +80,8 @@ func appBefore(c *cli.Context) error {
 	return nil
 }
 
-func createToken(_ *cli.Context) error {
-	log.Info("Not yet implemented")
-	return nil
-}
-
 func startService(_ *cli.Context) error {
-	return service.Serve(appConfig.Listen, appConfig.Namespace, appConfig.Kubeconfig)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return service.Serve(ctx, appConfig.Listen, appConfig.Namespace, appConfig.Kubeconfig)
 }

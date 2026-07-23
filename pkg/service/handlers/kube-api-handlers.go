@@ -1,30 +1,32 @@
 package handlers
 
 import (
-	clusterv3 "github.com/rancher/rancher/pkg/generated/norman/cluster.cattle.io/v3"
-	corev1 "github.com/rancher/rancher/pkg/generated/norman/core/v1"
+	"github.com/rancher/kube-api-auth/pkg/clients"
+	clusterv3 "github.com/rancher/kube-api-auth/pkg/generated/controllers/cluster.cattle.io/v3"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type KubeAPIHandlers struct {
 	namespace                  string
-	clusterAuthTokens          clusterv3.ClusterAuthTokenInterface
-	clusterAuthTokensLister    clusterv3.ClusterAuthTokenLister
-	clusterUserAttribute       clusterv3.ClusterUserAttributeInterface
-	clusterUserAttributeLister clusterv3.ClusterUserAttributeLister
-	configMapLister            corev1.ConfigMapLister
-	secrets                    corev1.SecretInterface
-	secretLister               corev1.SecretLister
+	clusterAuthTokens          clusterv3.ClusterAuthTokenClient
+	clusterAuthTokensCache     clusterv3.ClusterAuthTokenCache
+	clusterUserAttributes      clusterv3.ClusterUserAttributeClient
+	clusterUserAttributesCache clusterv3.ClusterUserAttributeCache
+	configMapLister            corev1listers.ConfigMapNamespaceLister
+	secrets                    corev1client.SecretInterface
+	secretLister               corev1listers.SecretNamespaceLister
 }
 
-func NewKubeAPIHandlers(namespace string, clusterAPI clusterv3.Interface, coreAPI corev1.Interface) *KubeAPIHandlers {
+func NewKubeAPIHandlers(namespace string, c *clients.Clients) *KubeAPIHandlers {
 	return &KubeAPIHandlers{
 		namespace:                  namespace,
-		clusterAuthTokens:          clusterAPI.ClusterAuthTokens(namespace),
-		clusterAuthTokensLister:    clusterAPI.ClusterAuthTokens(namespace).Controller().Lister(),
-		clusterUserAttribute:       clusterAPI.ClusterUserAttributes(namespace),
-		clusterUserAttributeLister: clusterAPI.ClusterUserAttributes(namespace).Controller().Lister(),
-		configMapLister:            coreAPI.ConfigMaps(namespace).Controller().Lister(),
-		secrets:                    coreAPI.Secrets(namespace),
-		secretLister:               coreAPI.Secrets(namespace).Controller().Lister(),
+		clusterAuthTokens:          c.ClusterAuthTokens,
+		clusterAuthTokensCache:     c.ClusterAuthTokenCache,
+		clusterUserAttributes:      c.ClusterUserAttributes,
+		clusterUserAttributesCache: c.ClusterUserAttributeCache,
+		configMapLister:            c.ConfigMapLister,
+		secrets:                    c.Secrets,
+		secretLister:               c.SecretLister,
 	}
 }
