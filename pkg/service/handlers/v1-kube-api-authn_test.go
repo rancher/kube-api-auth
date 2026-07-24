@@ -871,7 +871,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		})
 	})
 
-	t.Run("user attribute update fails during refresh", func(t *testing.T) {
+	t.Run("user attribute update failure during refresh is silent", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
@@ -905,11 +905,16 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return nil, fmt.Errorf("update failed")
 					},
 				},
+				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
+					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						return in1, nil
+					},
+				},
 			}
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
-			require.Error(t, err)
-			assert.ErrorContains(t, err, "update failed")
+			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+			require.NoError(t, err)
+			assert.Equal(t, testUserName, result.UserName)
 		})
 	})
 
