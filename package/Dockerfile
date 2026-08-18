@@ -19,4 +19,4 @@ USER $user
 LABEL org.opencontainers.image.base.name="${BASE_IMAGE}" \
       org.opencontainers.image.base.digest="${BASE_DIGEST}"
 
-CMD ["kube-api-auth", "serve"]
+CMD ["kube-api-auth"]
