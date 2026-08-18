@@ -15,7 +15,7 @@ require (
 	github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54
 	github.com/rancher/wrangler/v3 v3.7.0
 	github.com/sirupsen/logrus v1.9.4
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.0
 	github.com/urfave/cli v1.22.17
 	golang.org/x/crypto v0.53.0
 	k8s.io/api v0.36.2
