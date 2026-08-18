@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/rancher/kube-api-auth/pkg/clients"
 	"github.com/rancher/kube-api-auth/pkg/service/handlers"
 	log "github.com/sirupsen/logrus"
@@ -73,10 +72,10 @@ func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
 	return nil
 }
 
-func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *mux.Router {
-	router := mux.NewRouter().StrictSlash(true)
-	router.Methods("GET").Path("/healthcheck").Handler(handlers.HealthcheckHandler())
-	router.Methods("POST").Path("/v1/authenticate").Handler(kubeAPIHandlers.V1AuthenticateHandler())
+func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *http.ServeMux {
+	router := http.NewServeMux()
+	router.Handle("GET /healthcheck", handlers.HealthcheckHandler())
+	router.Handle("POST /v1/authenticate", kubeAPIHandlers.V1AuthenticateHandler())
 
 	return router
 }
