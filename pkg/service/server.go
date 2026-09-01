@@ -39,10 +39,15 @@ func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
 		return fmt.Errorf("starting cluster clients: %w", err)
 	}
 
-	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, c)
+	authenticator := handlers.NewAuthenticator(namespace, c)
+	routeHandlers := Handlers{
+		Healthcheck:  http.HandlerFunc(handlers.Healthcheck),
+		Authenticate: http.HandlerFunc(authenticator.Authenticate),
+	}
+
 	srv := &http.Server{
 		Addr:              listen,
-		Handler:           RouteContext(kubeAPIHandlers),
+		Handler:           NewRouter(routeHandlers),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,
@@ -70,12 +75,4 @@ func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
 		return fmt.Errorf("http server shutdown: %w", err)
 	}
 	return nil
-}
-
-func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *http.ServeMux {
-	router := http.NewServeMux()
-	router.HandleFunc("GET /healthcheck", handlers.Healthcheck)
-	router.Handle("POST /v1/authenticate", kubeAPIHandlers.V1AuthenticateHandler())
-
-	return router
 }

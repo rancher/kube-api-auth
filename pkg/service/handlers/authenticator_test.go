@@ -293,7 +293,7 @@ func TestGetRefreshPeriod(t *testing.T) {
 	t.Run("configmap not found", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace:       testNamespace,
 			configMapLister: noRefreshConfigMap(),
 		}
@@ -304,7 +304,7 @@ func TestGetRefreshPeriod(t *testing.T) {
 	t.Run("valid value", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			configMapLister: &fakeConfigMapLister{
 				GetFunc: func(name string) (*corev1.ConfigMap, error) {
@@ -319,7 +319,7 @@ func TestGetRefreshPeriod(t *testing.T) {
 	t.Run("zero value", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			configMapLister: &fakeConfigMapLister{
 				GetFunc: func(name string) (*corev1.ConfigMap, error) {
@@ -334,7 +334,7 @@ func TestGetRefreshPeriod(t *testing.T) {
 	t.Run("empty value", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			configMapLister: &fakeConfigMapLister{
 				GetFunc: func(name string) (*corev1.ConfigMap, error) {
@@ -349,7 +349,7 @@ func TestGetRefreshPeriod(t *testing.T) {
 	t.Run("non-numeric value", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			configMapLister: &fakeConfigMapLister{
 				GetFunc: func(name string) (*corev1.ConfigMap, error) {
@@ -364,7 +364,7 @@ func TestGetRefreshPeriod(t *testing.T) {
 	t.Run("nil data", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			configMapLister: &fakeConfigMapLister{
 				GetFunc: func(name string) (*corev1.ConfigMap, error) {
@@ -388,7 +388,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			user := newTestUser("group1", "group2")
 			secret := newTestSecret()
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -423,7 +423,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 	t.Run("token not found", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -443,7 +443,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		token := newTestToken()
 		token.Enabled = false
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -460,7 +460,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 	t.Run("user not found", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -485,7 +485,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		user := newTestUser()
 		user.Enabled = false
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -507,7 +507,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 	t.Run("wrong secret key", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -538,7 +538,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			token := newTestToken()
 			token.ExpiresAt = time.Now().Add(-time.Hour).Format(time.RFC3339)
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -566,7 +566,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 	t.Run("secret missing and no hash", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -600,7 +600,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			var createdSecret *corev1.Secret
 			var updatedToken *clusterv3.ClusterAuthToken
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -656,7 +656,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			var updatedSecretData map[string][]byte
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -714,7 +714,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		token := newTestToken()
 		token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -754,7 +754,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		token := newTestToken()
 		token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -799,7 +799,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			var userUpdated bool
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -849,7 +849,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			user := newTestUser("viewers")
 			user.LastRefresh = time.Now().Add(-10 * time.Minute).Format(time.RFC3339)
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -892,7 +892,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			user := newTestUser()
 			user.LastRefresh = time.Now().Add(-24 * time.Hour).Format(time.RFC3339)
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -931,7 +931,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			user := newTestUser()
 			user.LastRefresh = "not-a-date"
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -968,7 +968,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			user := newTestUser()
 			user.LastRefresh = time.Now().Add(-2 * time.Hour).Format(time.RFC3339)
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1015,7 +1015,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 			token := newTestToken()
 			var lastUsedAtSet bool
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1059,7 +1059,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			var tokenUpdateCalled bool
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1102,7 +1102,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 			var tokenUpdateCalled bool
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1140,7 +1140,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			token := newTestToken()
 
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1180,7 +1180,7 @@ func TestAuthenticate(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
-			h := &KubeAPIHandlers{
+			h := &Authenticator{
 				namespace: testNamespace,
 				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1208,7 +1208,7 @@ func TestAuthenticate(t *testing.T) {
 			w := httptest.NewRecorder()
 			r := tokenReviewRequest(t, testAccessKey+":"+testSecretKey)
 
-			h.V1AuthenticateHandler().ServeHTTP(w, r)
+			h.Authenticate(w, r)
 
 			assert.Equal(t, http.StatusOK, w.Code)
 
@@ -1226,12 +1226,12 @@ func TestAuthenticate(t *testing.T) {
 	t.Run("malformed body returns 400", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{}
+		h := &Authenticator{}
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", strings.NewReader("not json"))
 
-		h.V1AuthenticateHandler().ServeHTTP(w, r)
+		h.Authenticate(w, r)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
@@ -1239,7 +1239,7 @@ func TestAuthenticate(t *testing.T) {
 	t.Run("invalid credentials returns 401", func(t *testing.T) {
 		t.Parallel()
 
-		h := &KubeAPIHandlers{
+		h := &Authenticator{
 			namespace: testNamespace,
 			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
 				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
@@ -1251,7 +1251,7 @@ func TestAuthenticate(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := tokenReviewRequest(t, "unknown-token:secret")
 
-		h.V1AuthenticateHandler().ServeHTTP(w, r)
+		h.Authenticate(w, r)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})

@@ -6,16 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/rancher/kube-api-auth/pkg/service/handlers"
 )
 
-// TestRouteContext covers routing only, so the cases never reach a handler body
-// that would touch the cluster clients a zero-value KubeAPIHandlers lacks.
-func TestRouteContext(t *testing.T) {
+func TestNewRouter(t *testing.T) {
 	t.Parallel()
-
-	router := RouteContext(&handlers.KubeAPIHandlers{})
 
 	tests := []struct {
 		name       string
@@ -23,18 +17,21 @@ func TestRouteContext(t *testing.T) {
 		path       string
 		wantStatus int
 		wantAllow  string
+		wantCalled string
 	}{
 		{
 			name:       "healthcheck",
 			method:     http.MethodGet,
 			path:       "/healthcheck",
 			wantStatus: http.StatusOK,
+			wantCalled: "healthcheck",
 		},
 		{
 			name:       "healthcheck answers HEAD",
 			method:     http.MethodHead,
 			path:       "/healthcheck",
 			wantStatus: http.StatusOK,
+			wantCalled: "healthcheck",
 		},
 		{
 			name:       "healthcheck rejects POST",
@@ -42,6 +39,13 @@ func TestRouteContext(t *testing.T) {
 			path:       "/healthcheck",
 			wantStatus: http.StatusMethodNotAllowed,
 			wantAllow:  "GET, HEAD",
+		},
+		{
+			name:       "authenticate",
+			method:     http.MethodPost,
+			path:       "/v1/authenticate",
+			wantStatus: http.StatusOK,
+			wantCalled: "authenticate",
 		},
 		{
 			name:       "authenticate rejects GET",
@@ -68,13 +72,28 @@ func TestRouteContext(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			var called string
+			router := NewRouter(Handlers{
+				Healthcheck:  recordHandler("healthcheck", &called),
+				Authenticate: recordHandler("authenticate", &called),
+			})
+
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, httptest.NewRequest(test.method, test.path, nil))
 
 			assert.Equal(t, test.wantStatus, w.Code)
+			assert.Equal(t, test.wantCalled, called)
 			if test.wantAllow != "" {
 				assert.Equal(t, test.wantAllow, w.Header().Get("Allow"))
 			}
 		})
 	}
+}
+
+// recordHandler returns a handler that records its name when the router
+// dispatches to it.
+func recordHandler(name string, called *string) http.Handler {
+	return http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		*called = name
+	})
 }
