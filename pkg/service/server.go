@@ -74,7 +74,7 @@ func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
 
 func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *http.ServeMux {
 	router := http.NewServeMux()
-	router.Handle("GET /healthcheck", handlers.HealthcheckHandler())
+	router.HandleFunc("GET /healthcheck", handlers.Healthcheck)
 	router.Handle("POST /v1/authenticate", kubeAPIHandlers.V1AuthenticateHandler())
 
 	return router
