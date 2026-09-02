@@ -13,19 +13,43 @@ import (
 
 	kubeapiauth "github.com/rancher/kube-api-auth/pkg"
 	"github.com/rancher/kube-api-auth/pkg/api/v1/types"
+	"github.com/rancher/kube-api-auth/pkg/clients"
 	"github.com/rancher/kube-api-auth/pkg/clusterauth"
+	clusterv3wr "github.com/rancher/kube-api-auth/pkg/generated/controllers/cluster.cattle.io/v3"
 	clusterv3 "github.com/rancher/rancher/pkg/apis/cluster.cattle.io/v3"
 	log "github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/retry"
 )
 
-func (h *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
-	return h.v1Authenticate
+type Authenticator struct {
+	namespace                  string
+	clusterAuthTokens          clusterv3wr.ClusterAuthTokenClient
+	clusterAuthTokensCache     clusterv3wr.ClusterAuthTokenCache
+	clusterUserAttributes      clusterv3wr.ClusterUserAttributeClient
+	clusterUserAttributesCache clusterv3wr.ClusterUserAttributeCache
+	configMapLister            corev1listers.ConfigMapNamespaceLister
+	secrets                    corev1client.SecretInterface
+	secretLister               corev1listers.SecretNamespaceLister
 }
 
-func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request) {
+func NewAuthenticator(namespace string, c *clients.Clients) *Authenticator {
+	return &Authenticator{
+		namespace:                  namespace,
+		clusterAuthTokens:          c.ClusterAuthTokens,
+		clusterAuthTokensCache:     c.ClusterAuthTokenCache,
+		clusterUserAttributes:      c.ClusterUserAttributes,
+		clusterUserAttributesCache: c.ClusterUserAttributeCache,
+		configMapLister:            c.ConfigMapLister,
+		secrets:                    c.Secrets,
+		secretLister:               c.SecretLister,
+	}
+}
+
+func (a *Authenticator) Authenticate(w http.ResponseWriter, r *http.Request) {
 	response := types.V1AuthnResponse{
 		APIVersion: kubeapiauth.DefaultK8sAPIVersion,
 		Kind:       kubeapiauth.DefaultAuthnKind,
@@ -40,9 +64,9 @@ func (h *KubeAPIHandlers) v1Authenticate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Debugf("Processing v1Authenticate request for %s", accessKey)
+	log.Debugf("Processing authentication request for %s", accessKey)
 
-	user, err := h.v1getAndVerifyUser(r.Context(), accessKey, secretKey)
+	user, err := a.v1getAndVerifyUser(r.Context(), accessKey, secretKey)
 	if err != nil {
 		ReturnHTTPError(w, r, http.StatusUnauthorized, fmt.Sprintf("%v", err))
 		return
@@ -101,8 +125,8 @@ func v1getBodyAuthnRequest(bytes []byte) (*types.V1AuthnRequest, error) {
 	return authnReq, nil
 }
 
-func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, secretKey string) (*types.V1AuthnResponseUser, error) {
-	clusterAuthToken, err := h.clusterAuthTokensCache.Get(h.namespace, accessKey)
+func (a *Authenticator) v1getAndVerifyUser(ctx context.Context, accessKey, secretKey string) (*types.V1AuthnResponseUser, error) {
+	clusterAuthToken, err := a.clusterAuthTokensCache.Get(a.namespace, accessKey)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +134,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 		return nil, fmt.Errorf("token is not enabled")
 	}
 
-	clusterUserAttribute, err := h.clusterUserAttributesCache.Get(h.namespace, clusterAuthToken.UserName)
+	clusterUserAttribute, err := a.clusterUserAttributesCache.Get(a.namespace, clusterAuthToken.UserName)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +142,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 		return nil, fmt.Errorf("user is not enabled")
 	}
 
-	clusterAuthTokenSecret, err := h.secretLister.Get(accessKey)
+	clusterAuthTokenSecret, err := a.secretLister.Get(accessKey)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -129,7 +153,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 	}
 
 	if migrate {
-		migrated, err := h.migrateHash(ctx, accessKey)
+		migrated, err := a.migrateHash(ctx, accessKey)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +163,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 	}
 
 	now := time.Now()
-	refreshPeriod := h.getRefreshPeriod()
+	refreshPeriod := a.getRefreshPeriod()
 	if refreshPeriod >= 0 && clusterUserAttribute.LastRefresh != "" && !clusterUserAttribute.NeedsRefresh {
 		refresh, err := time.Parse(time.RFC3339, clusterUserAttribute.LastRefresh)
 		if err != nil {
@@ -149,7 +173,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 		if refresh.Add(refreshPeriod).Before(now) {
 			updated := clusterUserAttribute.DeepCopy()
 			updated.NeedsRefresh = true
-			if _, err := h.clusterUserAttributes.Update(updated); err != nil {
+			if _, err := a.clusterUserAttributes.Update(updated); err != nil {
 				// NeedsRefresh is a best-effort hint to the refresh
 				// controller; do not fail authentication on it.
 				log.Errorf("error setting NeedsRefresh on clusterUserAttribute %s: %s", clusterUserAttribute.Name, err)
@@ -157,7 +181,7 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 		}
 	}
 
-	h.touchLastUsedAt(now, clusterAuthToken)
+	a.touchLastUsedAt(now, clusterAuthToken)
 
 	return &types.V1AuthnResponseUser{
 		UserName: clusterAuthToken.UserName,
@@ -177,10 +201,10 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(ctx context.Context, accessKey, sec
 // the informer cache: after a Conflict the cache still holds the stale
 // resourceVersion (the informer watch hasn't caught up), so a cache re-read
 // would loop until DefaultRetry exhausts.
-func (h *KubeAPIHandlers) migrateHash(ctx context.Context, accessKey string) (*clusterv3.ClusterAuthToken, error) {
+func (a *Authenticator) migrateHash(ctx context.Context, accessKey string) (*clusterv3.ClusterAuthToken, error) {
 	var migrated *clusterv3.ClusterAuthToken
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		token, err := h.clusterAuthTokens.Get(h.namespace, accessKey, metav1.GetOptions{})
+		token, err := a.clusterAuthTokens.Get(a.namespace, accessKey, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -188,24 +212,24 @@ func (h *KubeAPIHandlers) migrateHash(ctx context.Context, accessKey string) (*c
 			return nil
 		}
 
-		secret := clusterauth.NewClusterAuthTokenSecretForName(h.namespace, token.Name, token.SecretKeyHash) //nolint:staticcheck
-		if _, err := h.secrets.Create(ctx, secret, metav1.CreateOptions{}); err != nil {
+		secret := clusterauth.NewClusterAuthTokenSecretForName(a.namespace, token.Name, token.SecretKeyHash) //nolint:staticcheck
+		if _, err := a.secrets.Create(ctx, secret, metav1.CreateOptions{}); err != nil {
 			if !apierrors.IsAlreadyExists(err) {
 				return err
 			}
-			existing, err := h.secrets.Get(ctx, secret.Name, metav1.GetOptions{})
+			existing, err := a.secrets.Get(ctx, secret.Name, metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("migrating clusterAuthToken secret %s: %w", token.Name, err)
 			}
 			existing.Data = secret.Data
-			if _, err := h.secrets.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
+			if _, err := a.secrets.Update(ctx, existing, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("migrating clusterAuthToken secret %s: %w", token.Name, err)
 			}
 		}
 
 		token = token.DeepCopy()
 		token.SecretKeyHash = "" //nolint:staticcheck
-		updated, err := h.clusterAuthTokens.Update(token)
+		updated, err := a.clusterAuthTokens.Update(token)
 		if err != nil {
 			return fmt.Errorf("migrating clusterAuthToken %s: %w", token.Name, err)
 		}
@@ -218,7 +242,7 @@ func (h *KubeAPIHandlers) migrateHash(ctx context.Context, accessKey string) (*c
 // touchLastUsedAt bumps ClusterAuthToken.LastUsedAt to now, at most once per
 // second, on a defensive copy of the cached object. Update errors are logged
 // and swallowed since a stale LastUsedAt should not fail authentication.
-func (h *KubeAPIHandlers) touchLastUsedAt(now time.Time, token *clusterv3.ClusterAuthToken) {
+func (a *Authenticator) touchLastUsedAt(now time.Time, token *clusterv3.ClusterAuthToken) {
 	const precision = time.Second
 	now = now.Truncate(precision)
 
@@ -230,15 +254,15 @@ func (h *KubeAPIHandlers) touchLastUsedAt(now time.Time, token *clusterv3.Cluste
 	lastUsedAt := metav1.NewTime(now)
 	updated.LastUsedAt = &lastUsedAt
 
-	if _, err := h.clusterAuthTokens.Update(updated); err != nil {
+	if _, err := a.clusterAuthTokens.Update(updated); err != nil {
 		log.Errorf("error updating clusterAuthToken %s: %s", updated.Name, err)
 	}
 }
 
-func (h *KubeAPIHandlers) getRefreshPeriod() time.Duration {
+func (a *Authenticator) getRefreshPeriod() time.Duration {
 	const noDefault = time.Duration(-1)
 
-	configMap, err := h.configMapLister.Get(clusterauth.AuthProviderRefreshDebounceSettingName)
+	configMap, err := a.configMapLister.Get(clusterauth.AuthProviderRefreshDebounceSettingName)
 	if err != nil || configMap.Data == nil {
 		return noDefault
 	}

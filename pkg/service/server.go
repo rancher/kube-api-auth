@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/rancher/kube-api-auth/pkg/clients"
 	"github.com/rancher/kube-api-auth/pkg/service/handlers"
 	log "github.com/sirupsen/logrus"
@@ -40,10 +39,15 @@ func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
 		return fmt.Errorf("starting cluster clients: %w", err)
 	}
 
-	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, c)
+	authenticator := handlers.NewAuthenticator(namespace, c)
+	routeHandlers := Handlers{
+		Healthcheck:  http.HandlerFunc(handlers.Healthcheck),
+		Authenticate: http.HandlerFunc(authenticator.Authenticate),
+	}
+
 	srv := &http.Server{
 		Addr:              listen,
-		Handler:           RouteContext(kubeAPIHandlers),
+		Handler:           NewRouter(routeHandlers),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,
@@ -71,12 +75,4 @@ func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
 		return fmt.Errorf("http server shutdown: %w", err)
 	}
 	return nil
-}
-
-func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *mux.Router {
-	router := mux.NewRouter().StrictSlash(true)
-	router.Methods("GET").Path("/healthcheck").Handler(handlers.HealthcheckHandler())
-	router.Methods("POST").Path("/v1/authenticate").Handler(kubeAPIHandlers.V1AuthenticateHandler())
-
-	return router
 }
