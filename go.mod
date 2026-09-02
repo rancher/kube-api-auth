@@ -11,7 +11,7 @@ require (
 	github.com/rancher/lasso v0.2.9
 	github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54
 	github.com/rancher/wrangler/v3 v3.7.0
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.1
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.55.0
 	k8s.io/api v0.36.2
