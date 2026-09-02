@@ -11,7 +11,7 @@ replace (
 
 require (
 	github.com/rancher/lasso v0.2.9
-	github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54
+	github.com/rancher/rancher/pkg/apis v0.0.0-20260902193809-46f3c1865152
 	github.com/rancher/wrangler/v3 v3.7.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
@@ -46,7 +46,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
-	github.com/rancher/norman v0.9.7 // indirect
+	github.com/rancher/norman v0.10.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect

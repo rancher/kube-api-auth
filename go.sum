@@ -68,10 +68,10 @@ github.com/prometheus/procfs v0.19.2 h1:zUMhqEW66Ex7OXIiDkll3tl9a1ZdilUOd/F6ZXw4
 github.com/prometheus/procfs v0.19.2/go.mod h1:M0aotyiemPhBCM0z5w87kL22CxfcH05ZpYlu+b4J7mw=
 github.com/rancher/lasso v0.2.9 h1:5Xk9Qid+YDOLpa6s5xalcSR0cA5BMbgWcaOZ8kdNU7k=
 github.com/rancher/lasso v0.2.9/go.mod h1:PMtxoVahRQvhEAi1HVOfyLDe1CrtGwTqOtkPVjSSkns=
-github.com/rancher/norman v0.9.7 h1:za9JjsWBUi+0rY3EJ3JdAZFQsadu7fpfC3MHi9a21uE=
-github.com/rancher/norman v0.9.7/go.mod h1:XPdQnSdaiDrQ130ueYppMKIquQz5Ob1tnI6+lcraqqo=
-github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54 h1:znDbpHBv2PlpwgOSx8Zpw2vWnb4FWrlqbAgoY5qcCEM=
-github.com/rancher/rancher/pkg/apis v0.0.0-20260625140903-06a1727c1d54/go.mod h1:kQAGb2wHAycKrj9Bwmphf9uJtlxPMl68pH9vQhyw9hc=
+github.com/rancher/norman v0.10.0 h1:vBIp5gNHelyS64IAs6FONPUfv0VTYWiMSrEbDS2l+hM=
+github.com/rancher/norman v0.10.0/go.mod h1:ExdLbr95m15PLbzQRrCVjGf8ah6kAVcttk484HSI9cM=
+github.com/rancher/rancher/pkg/apis v0.0.0-20260902193809-46f3c1865152 h1:Wb2YGjZWf9+3YZ7X5L/nJJhX6JHiDxtsw1StIimxrlA=
+github.com/rancher/rancher/pkg/apis v0.0.0-20260902193809-46f3c1865152/go.mod h1:8ueGJkPN3Xcf0R5p45PYkuoFl6tKT4gYlhiJPHY2hCo=
 github.com/rancher/wrangler/v3 v3.7.1 h1:3IoJWG8YEsPJ3oYXEDTNjITsrqxDuDz722ivCFXQOGQ=
 github.com/rancher/wrangler/v3 v3.7.1/go.mod h1:SRd8RgvLACW1sOeOE/JagsO1gWVgSduKGQtPSsKzntI=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
