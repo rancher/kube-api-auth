@@ -34,8 +34,10 @@ jobs:
         cache: false
 
     # https://github.com/golang/go/issues/75031
+    # Derive from the toolchain setup-go just installed from go.mod, so this never drifts
+    # out of sync with the go directive and Renovate has no hardcoded version to bump.
     - name: Set toolchain version
-      run: go env -w GOTOOLCHAIN=go1.25.4+auto
+      run: go env -w GOTOOLCHAIN=$(go env GOVERSION)+auto
 
     - name: Validate the sources
       run: |
