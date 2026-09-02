@@ -43,26 +43,35 @@ into `Secret`s on first use.
 
 ## Endpoints
 
-| Method | Path              | Purpose                        |
-|--------|-------------------|--------------------------------|
-| GET    | `/healthcheck`    | Liveness / readiness probe.    |
-| POST   | `/v1/authenticate`| `TokenReview` verification.    |
+| Method     | Path              | Purpose                        |
+|------------|-------------------|--------------------------------|
+| GET, HEAD  | `/healthcheck`    | Liveness / readiness probe.    |
+| POST       | `/v1/authenticate`| `TokenReview` verification.    |
+
+Paths match exactly. `/healthcheck/` with a trailing slash returns 404. Any
+other method on a known path returns 405 with an `Allow` header.
 
 ## Configuration
 
-Flags (see `kube-api-auth --help` and `kube-api-auth serve --help`):
+Everything is configured through the environment. There are no flags and no
+commands; `kube-api-auth` serves. It refuses to start if given arguments it
+does not understand, so a stale flag fails loudly instead of being ignored. A
+bare `serve`, the command earlier versions needed, is accepted and does nothing
+beyond logging a deprecation warning.
 
-| Flag           | Env         | Default             | Description                                      |
-|----------------|-------------|---------------------|--------------------------------------------------|
-| `--debug`      |             | off                 | Verbose logging.                                 |
-| `--kubeconfig` | `KUBECONFIG`| in-cluster          | Path to kubeconfig for the downstream cluster.   |
-| `--namespace`  |             | `cattle-system`     | Namespace holding the `cluster.cattle.io/v3` CRs and hash `Secret`s. |
-| `--listen`, `-l` |           | `127.0.0.1:6440`    | Host:port to serve HTTP on (only on `serve`).    |
+| Variable           | Default          | Description                                      |
+|--------------------|------------------|--------------------------------------------------|
+| `CATTLE_DEBUG`     | off              | Verbose logging. `RANCHER_DEBUG` works too.      |
+| `KUBECONFIG`       | in-cluster       | Path to kubeconfig for the downstream cluster.   |
+| `CATTLE_NAMESPACE` | `cattle-system`  | Namespace holding the `cluster.cattle.io/v3` CRs and hash `Secret`s. |
+| `CATTLE_LISTEN`    | `127.0.0.1:6440` | Host:port to serve HTTP on.                      |
+
+The version is logged at startup.
 
 Runtime configuration knob:
 
 - `ConfigMap` named `auth-provider-refresh-debounce-seconds` in
-  `--namespace`, key `value`: integer seconds. Negative or missing
+  `CATTLE_NAMESPACE`, key `value`: integer seconds. Negative or missing
   disables periodic user refresh.
 
 ## Building and running
@@ -70,7 +79,7 @@ Runtime configuration knob:
 ```
 make                    # runs ./scripts/ci: build, test, validate, package
 make build              # binary only, into ./bin/kube-api-auth
-./bin/kube-api-auth serve --listen 127.0.0.1:6440
+CATTLE_LISTEN=127.0.0.1:6440 ./bin/kube-api-auth
 ```
 
 Container image is `rancher/kube-api-auth`; see `package/Dockerfile`.

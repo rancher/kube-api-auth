@@ -14,7 +14,7 @@ func TestHealthcheck(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
 
-	HealthcheckHandler().ServeHTTP(w, r)
+	Healthcheck(w, r)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Empty(t, w.Body.String())
