@@ -3,8 +3,10 @@ module github.com/rancher/kube-api-auth
 go 1.26.4
 
 replace (
-	k8s.io/client-go => k8s.io/client-go v0.36.2
-	k8s.io/code-generator => k8s.io/code-generator v0.36.2
+	k8s.io/api => k8s.io/api v0.36.4
+	k8s.io/apimachinery => k8s.io/apimachinery v0.36.4
+	k8s.io/client-go => k8s.io/client-go v0.36.4
+	k8s.io/code-generator => k8s.io/code-generator v0.36.4
 )
 
 require (
@@ -14,8 +16,8 @@ require (
 	github.com/sirupsen/logrus v1.10.1
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.55.0
-	k8s.io/api v0.36.2
-	k8s.io/apimachinery v0.36.2
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
 	k8s.io/client-go v12.0.0+incompatible
 )
 
