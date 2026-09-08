@@ -159,7 +159,7 @@ require (
 	github.com/rancher/fleet/pkg/apis v0.16.1 // indirect
 	github.com/rancher/gke-operator v1.15.1 // indirect
 	github.com/rancher/lasso v0.2.9 // indirect
-	github.com/rancher/rancher/pkg/plan v0.0.0-20260625140903-06a1727c1d54 // indirect
+	github.com/rancher/rancher/pkg/plan v0.0.0-20260827224206-8c257d748d23 // indirect
 	github.com/rancher/remotedialer v0.6.1 // indirect
 	github.com/rancher/steve v0.9.20 // indirect
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20260803054930-c6c76ca75822 // indirect
