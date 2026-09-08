@@ -4,9 +4,9 @@ go 1.26.8
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
-	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20260625175101-3356ef3e6d94
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20260625175101-3356ef3e6d94
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260625175101-3356ef3e6d94
+	github.com/rancher/rancher => github.com/rancher/rancher v0.0.0-20260826145217-af09b55e6d28
+	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20260826145217-af09b55e6d28
+	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260826145217-af09b55e6d28
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.46.0
@@ -146,12 +146,12 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
-	github.com/rancher/aks-operator v1.13.7 // indirect
-	github.com/rancher/ali-operator v1.13.4 // indirect
+	github.com/rancher/aks-operator v1.13.9 // indirect
+	github.com/rancher/ali-operator v1.13.6 // indirect
 	github.com/rancher/apiserver v0.7.9 // indirect
-	github.com/rancher/eks-operator v1.13.7 // indirect
-	github.com/rancher/fleet/pkg/apis v0.14.8 // indirect
-	github.com/rancher/gke-operator v1.13.7 // indirect
+	github.com/rancher/eks-operator v1.13.9 // indirect
+	github.com/rancher/fleet/pkg/apis v0.14.9 // indirect
+	github.com/rancher/gke-operator v1.13.9 // indirect
 	github.com/rancher/lasso v0.2.5 // indirect
 	github.com/rancher/remotedialer v0.6.0 // indirect
 	github.com/rancher/rke v1.8.1 // indirect
@@ -180,9 +180,9 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260724162435-b2f20204f0df // indirect
 	google.golang.org/grpc v1.83.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
