@@ -10,6 +10,7 @@ type V1AuthnResponseUser struct {
 type V1AuthnResponseStatus struct {
 	Authenticated bool                 `json:"authenticated"`
 	User          *V1AuthnResponseUser `json:"user,omitempty"`
+	Error         string               `json:"error,omitempty"`
 }
 
 type V1AuthnResponse struct {

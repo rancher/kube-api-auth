@@ -25,6 +25,15 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// cannotVerifyError marks a failure that kept the handler from reaching a
+// verdict on a token, as opposed to a token that was checked and refused.
+// It is answered with a 5xx so the apiserver treats it as a webhook failure
+// and retries, rather than as a refusal of the token.
+type cannotVerifyError struct{ err error }
+
+func (e *cannotVerifyError) Error() string { return e.err.Error() }
+func (e *cannotVerifyError) Unwrap() error { return e.err }
+
 type Authenticator struct {
 	namespace                  string
 	clusterAuthTokens          clusterv3wr.ClusterAuthTokenClient
@@ -68,21 +77,38 @@ func (a *Authenticator) Authenticate(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.v1getAndVerifyUser(r.Context(), accessKey, secretKey)
 	if err != nil {
-		ReturnHTTPError(w, r, http.StatusUnauthorized, fmt.Sprintf("%v", err))
+		if _, ok := errors.AsType[*cannotVerifyError](err); ok {
+			ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
+			return
+		}
+		// A refused token is a successful webhook call with a negative
+		// answer, so the apiserver expects a 2xx TokenReview with
+		// authenticated=false and the reason in status.error. A non-2xx
+		// here is treated by the apiserver as a webhook outage: it retries
+		// with backoff and logs "Failed to make webhook authenticator request".
+		log.Infof("Authentication refused for %s: %v", accessKey, err)
+		response.Status.Error = err.Error()
+		writeTokenReview(w, r, response)
 		return
 	}
 
 	response.Status.Authenticated = true
 	response.Status.User = user
+	writeTokenReview(w, r, response)
+}
 
+func writeTokenReview(w http.ResponseWriter, r *http.Request, response types.V1AuthnResponse) {
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(responseJSON); err != nil {
-		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
-		return
+		// The status line and headers went out with the first byte of
+		// the body, so nothing more can be sent to the client.
+		log.Errorf("error writing TokenReview response: %v", err)
 	}
 }
 
@@ -155,7 +181,7 @@ func (a *Authenticator) v1getAndVerifyUser(ctx context.Context, accessKey, secre
 	if migrate {
 		migrated, err := a.migrateHash(ctx, accessKey)
 		if err != nil {
-			return nil, err
+			return nil, &cannotVerifyError{err}
 		}
 		if migrated != nil {
 			clusterAuthToken = migrated

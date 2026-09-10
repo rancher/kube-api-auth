@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -186,6 +187,24 @@ func noRefreshConfigMap() *fakeConfigMapLister {
 			return nil, notFound(name)
 		},
 	}
+}
+
+// failingResponseWriter fails every Write and records WriteHeader calls, so a
+// test can assert that a handler does not try to change the status after the
+// body write has already committed the response.
+type failingResponseWriter struct {
+	header      http.Header
+	statusCodes []int
+}
+
+func (f *failingResponseWriter) Header() http.Header { return f.header }
+
+func (f *failingResponseWriter) Write([]byte) (int, error) {
+	return 0, errors.New("client went away")
+}
+
+func (f *failingResponseWriter) WriteHeader(statusCode int) {
+	f.statusCodes = append(f.statusCodes, statusCode)
 }
 
 func TestV1parseBody(t *testing.T) {
@@ -529,6 +548,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, "wrong-secret")
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "does not match")
+		var cannotVerify *cannotVerifyError
+		assert.NotErrorAs(t, err, &cannotVerify)
 	})
 
 	t.Run("expired token", func(t *testing.T) {
@@ -746,6 +767,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "storage unavailable")
+		var cannotVerify *cannotVerifyError
+		assert.ErrorAs(t, err, &cannotVerify)
 	})
 
 	t.Run("migration token update fails", func(t *testing.T) {
@@ -788,6 +811,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
+		var cannotVerify *cannotVerifyError
+		assert.ErrorAs(t, err, &cannotVerify)
 	})
 
 	t.Run("refresh triggered when overdue", func(t *testing.T) {
@@ -1211,6 +1236,7 @@ func TestAuthenticate(t *testing.T) {
 			h.Authenticate(w, r)
 
 			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 			var resp types.V1AuthnResponse
 			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
@@ -1234,9 +1260,54 @@ func TestAuthenticate(t *testing.T) {
 		h.Authenticate(w, r)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	})
 
-	t.Run("invalid credentials returns 401", func(t *testing.T) {
+	t.Run("migration failure returns 503", func(t *testing.T) {
+		t.Parallel()
+
+		token := newTestToken()
+		token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
+
+		h := &Authenticator{
+			namespace: testNamespace,
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
+					return newTestUser(), nil
+				},
+			},
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
+					return nil, notFound(name)
+				},
+			},
+			secrets: &fakeSecretClient{
+				CreateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+					return nil, fmt.Errorf("storage unavailable")
+				},
+			},
+			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
+		}
+
+		w := httptest.NewRecorder()
+		r := tokenReviewRequest(t, testAccessKey+":"+testSecretKey)
+
+		h.Authenticate(w, r)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+		assert.Empty(t, w.Body.Bytes())
+	})
+
+	t.Run("failed body write does not rewrite status", func(t *testing.T) {
 		t.Parallel()
 
 		h := &Authenticator{
@@ -1248,11 +1319,99 @@ func TestAuthenticate(t *testing.T) {
 			},
 		}
 
-		w := httptest.NewRecorder()
+		w := &failingResponseWriter{header: http.Header{}}
 		r := tokenReviewRequest(t, "unknown-token:secret")
 
 		h.Authenticate(w, r)
 
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Empty(t, w.statusCodes)
+		assert.Equal(t, "application/json", w.header.Get("Content-Type"))
+	})
+
+	t.Run("refused token returns 200 with authenticated false and error", func(t *testing.T) {
+		t.Parallel()
+
+		expiredToken := newTestToken()
+		expiredToken.ExpiresAt = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+
+		disabledToken := newTestToken()
+		disabledToken.Enabled = false
+
+		tests := []struct {
+			name    string
+			token   string
+			get     func(ns, name string) (*clusterv3.ClusterAuthToken, error)
+			wantErr string
+		}{
+			{
+				name:  "unknown token",
+				token: "unknown-token:secret",
+				get: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return nil, notFound(name)
+				},
+				wantErr: "not found",
+			},
+			{
+				name:  "wrong secret",
+				token: testAccessKey + ":wrong-secret",
+				get: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return newTestToken(), nil
+				},
+				wantErr: "secretKey hash does not match",
+			},
+			{
+				name:  "expired token",
+				token: testAccessKey + ":" + testSecretKey,
+				get: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return expiredToken, nil
+				},
+				wantErr: "auth expired at",
+			},
+			{
+				name:  "disabled token",
+				token: testAccessKey + ":" + testSecretKey,
+				get: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return disabledToken, nil
+				},
+				wantErr: "token is not enabled",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				h := &Authenticator{
+					namespace:              testNamespace,
+					clusterAuthTokensCache: &fakeClusterAuthTokenCache{GetFunc: tt.get},
+					clusterUserAttributesCache: &fakeClusterUserAttributeCache{
+						GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
+							return newTestUser(), nil
+						},
+					},
+					secretLister: &fakeSecretLister{
+						GetFunc: func(name string) (*corev1.Secret, error) {
+							return newTestSecret(), nil
+						},
+					},
+				}
+
+				w := httptest.NewRecorder()
+				r := tokenReviewRequest(t, tt.token)
+
+				h.Authenticate(w, r)
+
+				assert.Equal(t, http.StatusOK, w.Code)
+				assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+				var resp types.V1AuthnResponse
+				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+				assert.Equal(t, kubeapiauth.DefaultK8sAPIVersion, resp.APIVersion)
+				assert.Equal(t, kubeapiauth.DefaultAuthnKind, resp.Kind)
+				assert.False(t, resp.Status.Authenticated)
+				assert.Nil(t, resp.Status.User)
+				assert.Contains(t, resp.Status.Error, tt.wantErr)
+			})
+		}
 	})
 }
