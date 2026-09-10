@@ -68,13 +68,23 @@ func (a *Authenticator) Authenticate(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.v1getAndVerifyUser(r.Context(), accessKey, secretKey)
 	if err != nil {
-		ReturnHTTPError(w, r, http.StatusUnauthorized, fmt.Sprintf("%v", err))
+		// A refused token is a successful webhook call with a negative
+		// answer, so the apiserver expects a 2xx TokenReview with
+		// authenticated=false and the reason in status.error. A non-2xx
+		// here is treated by the apiserver as a webhook outage: it retries
+		// with backoff and logs "Failed to make webhook authenticator request".
+		log.Infof("Authentication refused for %s: %v", accessKey, err)
+		response.Status.Error = err.Error()
+		writeTokenReview(w, r, response)
 		return
 	}
 
 	response.Status.Authenticated = true
 	response.Status.User = user
+	writeTokenReview(w, r, response)
+}
 
+func writeTokenReview(w http.ResponseWriter, r *http.Request, response types.V1AuthnResponse) {
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
