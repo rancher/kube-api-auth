@@ -51,9 +51,14 @@ func TestMain(m *testing.M) {
 
 func tokenReviewRequest(t *testing.T, token string) *http.Request {
 	t.Helper()
+	return tokenReviewRequestWithVersion(t, kubeapiauth.DefaultK8sAPIVersion, token)
+}
+
+func tokenReviewRequestWithVersion(t *testing.T, apiVersion, token string) *http.Request {
+	t.Helper()
 
 	body := types.V1AuthnRequest{
-		APIVersion: kubeapiauth.DefaultK8sAPIVersion,
+		APIVersion: apiVersion,
 		Kind:       kubeapiauth.DefaultAuthnKind,
 		Spec:       types.V1AuthnRequestSpec{Token: token},
 	}
@@ -238,10 +243,42 @@ func TestV1parseBody(t *testing.T) {
 				t.Parallel()
 
 				r := tokenReviewRequest(t, tt.token)
-				accessKey, secretKey, err := v1parseBody(r)
+				req, err := v1parseBody(r)
 				require.NoError(t, err)
-				assert.Equal(t, tt.wantKey, accessKey)
-				assert.Equal(t, tt.wantSecret, secretKey)
+				assert.Equal(t, tt.wantKey, req.accessKey)
+				assert.Equal(t, tt.wantSecret, req.secretKey)
+			})
+		}
+	})
+
+	t.Run("apiVersion", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name        string
+			apiVersion  string
+			wantVersion string
+			wantErr     string
+		}{
+			{name: "v1", apiVersion: kubeapiauth.K8sAPIVersionV1, wantVersion: kubeapiauth.K8sAPIVersionV1},
+			{name: "v1beta1", apiVersion: kubeapiauth.K8sAPIVersionV1beta1, wantVersion: kubeapiauth.K8sAPIVersionV1beta1},
+			{name: "empty defaults to v1beta1", apiVersion: "", wantVersion: kubeapiauth.K8sAPIVersionV1beta1},
+			{name: "unsupported", apiVersion: "authentication.k8s.io/v2", wantErr: "not supported"},
+			{name: "wrong group", apiVersion: "authorization.k8s.io/v1", wantErr: "not supported"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				r := tokenReviewRequestWithVersion(t, tt.apiVersion, "key:secret")
+				req, err := v1parseBody(r)
+				if tt.wantErr != "" {
+					require.ErrorContains(t, err, tt.wantErr)
+					return
+				}
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantVersion, req.apiVersion)
 			})
 		}
 	})
@@ -251,7 +288,7 @@ func TestV1parseBody(t *testing.T) {
 
 		r := tokenReviewRequest(t, "nocolonhere")
 
-		_, _, err := v1parseBody(r)
+		_, err := v1parseBody(r)
 		require.ErrorContains(t, err, "found 1 parts of token")
 	})
 
@@ -260,7 +297,7 @@ func TestV1parseBody(t *testing.T) {
 
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", strings.NewReader(""))
 
-		_, _, err := v1parseBody(r)
+		_, err := v1parseBody(r)
 		require.ErrorContains(t, err, "unexpected end of JSON input")
 	})
 
@@ -269,7 +306,7 @@ func TestV1parseBody(t *testing.T) {
 
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", strings.NewReader("{invalid"))
 
-		_, _, err := v1parseBody(r)
+		_, err := v1parseBody(r)
 		require.ErrorContains(t, err, "invalid character")
 	})
 
@@ -284,7 +321,7 @@ func TestV1parseBody(t *testing.T) {
 		require.NoError(t, err)
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", bytes.NewReader(data))
 
-		_, _, err = v1parseBody(r)
+		_, err = v1parseBody(r)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "not TokenReview")
 	})
@@ -300,7 +337,7 @@ func TestV1parseBody(t *testing.T) {
 		require.NoError(t, err)
 		r := httptest.NewRequest(http.MethodPost, "/v1/authenticate", bytes.NewReader(data))
 
-		_, _, err = v1parseBody(r)
+		_, err = v1parseBody(r)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "missing Token")
 	})
@@ -1201,52 +1238,67 @@ func TestGetAndVerifyUser(t *testing.T) {
 func TestAuthenticate(t *testing.T) {
 	t.Parallel()
 
-	t.Run("valid request returns authenticated response", func(t *testing.T) {
+	for _, apiVersion := range []string{kubeapiauth.K8sAPIVersionV1, kubeapiauth.K8sAPIVersionV1beta1} {
+		t.Run("valid "+apiVersion+" request returns authenticated response", func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				h := &Authenticator{
+					namespace: testNamespace,
+					clusterAuthTokensCache: &fakeClusterAuthTokenCache{
+						GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+							return newTestToken(), nil
+						},
+					},
+					clusterUserAttributesCache: &fakeClusterUserAttributeCache{
+						GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
+							return newTestUser("group1"), nil
+						},
+					},
+					secretLister: &fakeSecretLister{
+						GetFunc: func(name string) (*corev1.Secret, error) {
+							return newTestSecret(), nil
+						},
+					},
+					configMapLister: noRefreshConfigMap(),
+					clusterAuthTokens: &fakeClusterAuthTokenClient{
+						UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+							return obj, nil
+						},
+					},
+				}
+
+				w := httptest.NewRecorder()
+				r := tokenReviewRequestWithVersion(t, apiVersion, testAccessKey+":"+testSecretKey)
+
+				h.Authenticate(w, r)
+
+				assert.Equal(t, http.StatusOK, w.Code)
+				assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+				var resp types.V1AuthnResponse
+				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+				assert.Equal(t, apiVersion, resp.APIVersion)
+				assert.Equal(t, kubeapiauth.DefaultAuthnKind, resp.Kind)
+				assert.True(t, resp.Status.Authenticated)
+				require.NotNil(t, resp.Status.User)
+				assert.Equal(t, testUserName, resp.Status.User.UserName)
+				assert.Equal(t, []string{"group1"}, resp.Status.User.Groups)
+			})
+		})
+	}
+
+	t.Run("unsupported apiVersion returns 400", func(t *testing.T) {
 		t.Parallel()
 
-		synctest.Test(t, func(t *testing.T) {
-			h := &Authenticator{
-				namespace: testNamespace,
-				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return newTestToken(), nil
-					},
-				},
-				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser("group1"), nil
-					},
-				},
-				secretLister: &fakeSecretLister{
-					GetFunc: func(name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return obj, nil
-					},
-				},
-			}
+		h := &Authenticator{}
 
-			w := httptest.NewRecorder()
-			r := tokenReviewRequest(t, testAccessKey+":"+testSecretKey)
+		w := httptest.NewRecorder()
+		r := tokenReviewRequestWithVersion(t, "authentication.k8s.io/v2", testAccessKey+":"+testSecretKey)
 
-			h.Authenticate(w, r)
+		h.Authenticate(w, r)
 
-			assert.Equal(t, http.StatusOK, w.Code)
-			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-			var resp types.V1AuthnResponse
-			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-			assert.Equal(t, kubeapiauth.DefaultK8sAPIVersion, resp.APIVersion)
-			assert.Equal(t, kubeapiauth.DefaultAuthnKind, resp.Kind)
-			assert.True(t, resp.Status.Authenticated)
-			require.NotNil(t, resp.Status.User)
-			assert.Equal(t, testUserName, resp.Status.User.UserName)
-			assert.Equal(t, []string{"group1"}, resp.Status.User.Groups)
-		})
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 
 	t.Run("malformed body returns 400", func(t *testing.T) {
@@ -1397,7 +1449,7 @@ func TestAuthenticate(t *testing.T) {
 				}
 
 				w := httptest.NewRecorder()
-				r := tokenReviewRequest(t, tt.token)
+				r := tokenReviewRequestWithVersion(t, kubeapiauth.K8sAPIVersionV1, tt.token)
 
 				h.Authenticate(w, r)
 
@@ -1406,7 +1458,7 @@ func TestAuthenticate(t *testing.T) {
 
 				var resp types.V1AuthnResponse
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-				assert.Equal(t, kubeapiauth.DefaultK8sAPIVersion, resp.APIVersion)
+				assert.Equal(t, kubeapiauth.K8sAPIVersionV1, resp.APIVersion)
 				assert.Equal(t, kubeapiauth.DefaultAuthnKind, resp.Kind)
 				assert.False(t, resp.Status.Authenticated)
 				assert.Nil(t, resp.Status.User)

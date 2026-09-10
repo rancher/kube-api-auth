@@ -58,24 +58,33 @@ func NewAuthenticator(namespace string, c *clients.Clients) *Authenticator {
 	}
 }
 
+// authnRequest is the parsed TokenReview the apiserver sent. The apiVersion is
+// kept because the apiserver only decodes a reply that carries the same
+// version it sent; a v1 apiserver rejects a v1beta1 reply and vice versa.
+type authnRequest struct {
+	apiVersion string
+	accessKey  string
+	secretKey  string
+}
+
 func (a *Authenticator) Authenticate(w http.ResponseWriter, r *http.Request) {
+	req, err := v1parseBody(r)
+	if err != nil {
+		ReturnHTTPError(w, r, http.StatusBadRequest, fmt.Sprintf("%v", err))
+		return
+	}
+
 	response := types.V1AuthnResponse{
-		APIVersion: kubeapiauth.DefaultK8sAPIVersion,
+		APIVersion: req.apiVersion,
 		Kind:       kubeapiauth.DefaultAuthnKind,
 		Status: types.V1AuthnResponseStatus{
 			Authenticated: false,
 		},
 	}
 
-	accessKey, secretKey, err := v1parseBody(r)
-	if err != nil {
-		ReturnHTTPError(w, r, http.StatusBadRequest, fmt.Sprintf("%v", err))
-		return
-	}
+	log.Debugf("Processing authentication request for %s", req.accessKey)
 
-	log.Debugf("Processing authentication request for %s", accessKey)
-
-	user, err := a.v1getAndVerifyUser(r.Context(), accessKey, secretKey)
+	user, err := a.v1getAndVerifyUser(r.Context(), req.accessKey, req.secretKey)
 	if err != nil {
 		if _, ok := errors.AsType[*cannotVerifyError](err); ok {
 			ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
@@ -86,7 +95,7 @@ func (a *Authenticator) Authenticate(w http.ResponseWriter, r *http.Request) {
 		// authenticated=false and the reason in status.error. A non-2xx
 		// here is treated by the apiserver as a webhook outage: it retries
 		// with backoff and logs "Failed to make webhook authenticator request".
-		log.Infof("Authentication refused for %s: %v", accessKey, err)
+		log.Infof("Authentication refused for %s: %v", req.accessKey, err)
 		response.Status.Error = err.Error()
 		writeTokenReview(w, r, response)
 		return
@@ -112,26 +121,27 @@ func writeTokenReview(w http.ResponseWriter, r *http.Request, response types.V1A
 	}
 }
 
-func v1parseBody(r *http.Request) (string, string, error) {
+func v1parseBody(r *http.Request) (authnRequest, error) {
 	bytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		return "", "", err
+		return authnRequest{}, err
 	}
 
 	authnReq, err := v1getBodyAuthnRequest(bytes)
 	if err != nil {
-		return "", "", err
+		return authnRequest{}, err
 	}
 
 	tokenParts := strings.SplitN(authnReq.Spec.Token, ":", 2)
 	if len(tokenParts) != 2 {
-		return "", "", fmt.Errorf("found %d parts of token", len(tokenParts))
+		return authnRequest{}, fmt.Errorf("found %d parts of token", len(tokenParts))
 	}
 
-	accessKey := strings.TrimPrefix(tokenParts[0], "ext/")
-	secretKey := tokenParts[1]
-
-	return accessKey, secretKey, nil
+	return authnRequest{
+		apiVersion: authnReq.APIVersion,
+		accessKey:  strings.TrimPrefix(tokenParts[0], "ext/"),
+		secretKey:  tokenParts[1],
+	}, nil
 }
 
 func v1getBodyAuthnRequest(bytes []byte) (*types.V1AuthnRequest, error) {
@@ -142,6 +152,16 @@ func v1getBodyAuthnRequest(bytes []byte) (*types.V1AuthnRequest, error) {
 
 	if authnReq.Kind != kubeapiauth.DefaultAuthnKind {
 		return nil, errors.New("authentication request kind is not TokenReview")
+	}
+
+	switch authnReq.APIVersion {
+	case kubeapiauth.K8sAPIVersionV1, kubeapiauth.K8sAPIVersionV1beta1:
+	case "":
+		// The apiserver always sends a version; tolerate hand-built
+		// requests the way earlier releases did.
+		authnReq.APIVersion = kubeapiauth.DefaultK8sAPIVersion
+	default:
+		return nil, fmt.Errorf("authentication request apiVersion %q is not supported", authnReq.APIVersion)
 	}
 
 	if authnReq.Spec.Token == "" {
