@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -186,6 +187,24 @@ func noRefreshConfigMap() *fakeConfigMapLister {
 			return nil, notFound(name)
 		},
 	}
+}
+
+// failingResponseWriter fails every Write and records WriteHeader calls, so a
+// test can assert that a handler does not try to change the status after the
+// body write has already committed the response.
+type failingResponseWriter struct {
+	header      http.Header
+	statusCodes []int
+}
+
+func (f *failingResponseWriter) Header() http.Header { return f.header }
+
+func (f *failingResponseWriter) Write([]byte) (int, error) {
+	return 0, errors.New("client went away")
+}
+
+func (f *failingResponseWriter) WriteHeader(statusCode int) {
+	f.statusCodes = append(f.statusCodes, statusCode)
 }
 
 func TestV1parseBody(t *testing.T) {
@@ -1236,6 +1255,27 @@ func TestAuthenticate(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	})
+
+	t.Run("failed body write does not rewrite status", func(t *testing.T) {
+		t.Parallel()
+
+		h := &Authenticator{
+			namespace: testNamespace,
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return nil, notFound(name)
+				},
+			},
+		}
+
+		w := &failingResponseWriter{header: http.Header{}}
+		r := tokenReviewRequest(t, "unknown-token:secret")
+
+		h.Authenticate(w, r)
+
+		assert.Empty(t, w.statusCodes)
+		assert.Equal(t, "application/json", w.header.Get("Content-Type"))
 	})
 
 	t.Run("refused token returns 200 with authenticated false and error", func(t *testing.T) {

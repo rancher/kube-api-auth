@@ -90,10 +90,12 @@ func writeTokenReview(w http.ResponseWriter, r *http.Request, response types.V1A
 		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if _, err := w.Write(responseJSON); err != nil {
-		ReturnHTTPError(w, r, http.StatusServiceUnavailable, fmt.Sprintf("%v", err))
-		return
+		// The status line and headers went out with the first byte of
+		// the body, so nothing more can be sent to the client.
+		log.Errorf("error writing TokenReview response: %v", err)
 	}
 }
 
