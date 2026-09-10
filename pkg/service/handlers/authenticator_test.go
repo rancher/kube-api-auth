@@ -1211,6 +1211,7 @@ func TestAuthenticate(t *testing.T) {
 			h.Authenticate(w, r)
 
 			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 			var resp types.V1AuthnResponse
 			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
@@ -1234,6 +1235,7 @@ func TestAuthenticate(t *testing.T) {
 		h.Authenticate(w, r)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 	})
 
 	t.Run("refused token returns 200 with authenticated false and error", func(t *testing.T) {
@@ -1310,6 +1312,7 @@ func TestAuthenticate(t *testing.T) {
 				h.Authenticate(w, r)
 
 				assert.Equal(t, http.StatusOK, w.Code)
+				assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
 				var resp types.V1AuthnResponse
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
