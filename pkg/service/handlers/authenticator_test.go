@@ -548,6 +548,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, "wrong-secret")
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "does not match")
+		var cannotVerify *cannotVerifyError
+		assert.NotErrorAs(t, err, &cannotVerify)
 	})
 
 	t.Run("expired token", func(t *testing.T) {
@@ -765,6 +767,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "storage unavailable")
+		var cannotVerify *cannotVerifyError
+		assert.ErrorAs(t, err, &cannotVerify)
 	})
 
 	t.Run("migration token update fails", func(t *testing.T) {
@@ -807,6 +811,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 
 		_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 		require.Error(t, err)
+		var cannotVerify *cannotVerifyError
+		assert.ErrorAs(t, err, &cannotVerify)
 	})
 
 	t.Run("refresh triggered when overdue", func(t *testing.T) {
@@ -1255,6 +1261,50 @@ func TestAuthenticate(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	})
+
+	t.Run("migration failure returns 503", func(t *testing.T) {
+		t.Parallel()
+
+		token := newTestToken()
+		token.SecretKeyHash = testSecretKeyHash //nolint:staticcheck
+
+		h := &Authenticator{
+			namespace: testNamespace,
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
+					return newTestUser(), nil
+				},
+			},
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
+					return nil, notFound(name)
+				},
+			},
+			secrets: &fakeSecretClient{
+				CreateFunc: func(ctx context.Context, s *corev1.Secret, opts metav1.CreateOptions) (*corev1.Secret, error) {
+					return nil, fmt.Errorf("storage unavailable")
+				},
+			},
+			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				GetFunc: func(ns, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
+		}
+
+		w := httptest.NewRecorder()
+		r := tokenReviewRequest(t, testAccessKey+":"+testSecretKey)
+
+		h.Authenticate(w, r)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+		assert.Empty(t, w.Body.Bytes())
 	})
 
 	t.Run("failed body write does not rewrite status", func(t *testing.T) {
