@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOLANG_CI_LINT_VERSION: v2.12.2
+  GOLANG_CI_LINT_VERSION: v2.13.2
   IMAGE: rancher/kube-api-auth
 
 permissions:
