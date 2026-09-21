@@ -1,6 +1,6 @@
 module github.com/rancher/kube-api-auth
 
-go 1.26.8
+go 1.27.0
 
 replace (
 	k8s.io/api => k8s.io/api v0.36.4
