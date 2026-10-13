@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -14,10 +16,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Serve(listen, namespace, kubeConfig string) error {
-	log.Info("Starting Rancher Kube-API-Auth service on ", listen)
+const (
+	controllerWorkers = 5
+	cacheSyncTimeout  = 30 * time.Second
 
-	ctx := context.Background()
+	readHeaderTimeout = 10 * time.Second
+	readTimeout       = 30 * time.Second
+	writeTimeout      = 30 * time.Second
+	idleTimeout       = 120 * time.Second
+	shutdownTimeout   = 15 * time.Second
+)
+
+func Serve(ctx context.Context, listen, namespace, kubeConfig string) error {
+	log.Info("Starting Rancher Kube-API-Auth service on ", listen)
 
 	_, clientConfig, err := k8s.GetConfig(ctx, "auto", kubeConfig)
 	if err != nil {
@@ -36,29 +47,56 @@ func Serve(listen, namespace, kubeConfig string) error {
 	clusterAPI := clusterv3.NewFromControllerFactory(wranglerCtx.ControllerFactory)
 	coreAPI := corev1.NewFromControllerFactory(wranglerCtx.ControllerFactory)
 
-	// API framework routes
 	kubeAPIHandlers := handlers.NewKubeAPIHandlers(namespace, clusterAPI, coreAPI)
-	router := RouteContext(kubeAPIHandlers)
 
-	go func() {
-		for {
-			if err := wranglerCtx.ControllerFactory.Start(ctx, 5); err != nil {
-				log.Error(err)
-				time.Sleep(2 * time.Second)
-			} else {
-				break
-			}
+	log.Info("Starting controllers and waiting for caches to sync")
+	if err := wranglerCtx.ControllerFactory.Start(ctx, controllerWorkers); err != nil {
+		return fmt.Errorf("starting controllers: %w", err)
+	}
+
+	syncCtx, cancel := context.WithTimeout(ctx, cacheSyncTimeout)
+	defer cancel()
+	for gvk, synced := range wranglerCtx.ControllerFactory.SharedCacheFactory().WaitForCacheSync(syncCtx) {
+		if !synced {
+			return fmt.Errorf("informer for %s did not sync", gvk)
 		}
+	}
+
+	srv := &http.Server{
+		Addr:              listen,
+		Handler:           RouteContext(kubeAPIHandlers),
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+		close(errCh)
 	}()
 
-	return http.ListenAndServe(listen, router)
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		log.Info("Shutdown signal received, draining connections")
+	}
+
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancelShutdown()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("http server shutdown: %w", err)
+	}
+	return nil
 }
 
 func RouteContext(kubeAPIHandlers *handlers.KubeAPIHandlers) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	// Healthcheck endpoint
 	router.Methods("GET").Path("/healthcheck").Handler(handlers.HealthcheckHandler())
-	// V1 Authenticate endpoint
 	router.Methods("POST").Path("/v1/authenticate").Handler(kubeAPIHandlers.V1AuthenticateHandler())
 
 	return router
