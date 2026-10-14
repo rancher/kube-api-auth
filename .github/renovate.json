@@ -1,10 +1,44 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>rancher/renovate-config#release"
-  ],
+  "extends": [ "github>rancher/renovate-config//default#release" ],
   "baseBranchPatterns": [
+    "main",
+    "release/v0.15",
+    "release/v0.13",
     "release/v0.10"
   ],
-  "prHourlyLimit": 2
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Disable auto-merge except for severe security updates",
+      "matchJsonata": [ "true" ],
+      "automerge": false
+    },
+    {
+      "description": "Automerge eligible security updates",
+      "matchDepTypes": [ "!devDependencies", "!dev-dependencies", "!test" ],
+      "matchJsonata": [
+        "($exists(vulnerabilityFixVersion) or $exists(isVulnerabilityAlert)) and (vulnerabilitySeverity = 'HIGH' or vulnerabilitySeverity = 'CRITICAL')"
+      ],
+      "matchUpdateTypes": [ "patch", "minor" ],
+      "automerge": true
+    },
+    {
+      "matchBaseBranches": [ "main" ],
+      "extends":           [ "github>rancher/renovate-config//rancher-main#release" ]
+    },
+    {
+      "matchBaseBranches": [ "release/v0.15" ],
+      "extends":           [ "github>rancher/renovate-config//rancher-2.15#release" ]
+    },
+    {
+      "matchBaseBranches": [ "release/v0.13" ],
+      "extends":           [ "github>rancher/renovate-config//rancher-2.14#release" ]
+    },
+    {
+      "matchBaseBranches": [ "release/v0.10" ],
+      "extends":           [ "github>rancher/renovate-config//rancher-2.12#release" ]
+    }
+  ]
 }
