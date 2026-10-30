@@ -32,10 +32,10 @@ shipped them.
 ## Currently deployed tags
 
 Which kube-api-auth tag is consumed by the latest patch of each supported
-Rancher minor. Update this when a Rancher line bumps its
-`pkg/apis/management.cattle.io/v3/tools_system_images.go` pin. Superseded
-tags drop out (rancher/rancher git history of `tools_system_images.go` is
-authoritative for per-patch precision).
+Rancher minor. Update this when a Rancher line bumps its kube-api-auth pin.
+To bump the pin, update `build.yaml` in the root of the `rancher/rancher`
+repo and run `go generate`. Superseded tags drop out (rancher/rancher git
+history of `build.yaml` is authoritative for per-patch precision).
 
 | kube-api-auth Tag | Rancher Minors      |
 |-------------------|---------------------|
