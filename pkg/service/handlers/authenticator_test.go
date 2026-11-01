@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -122,6 +123,7 @@ type fakeClusterAuthTokenClient struct {
 	clusterv3wr.ClusterAuthTokenClient
 	GetFunc    func(namespace, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error)
 	UpdateFunc func(*clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error)
+	PatchFunc  func(namespace, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error)
 }
 
 func (f *fakeClusterAuthTokenClient) Get(namespace, name string, opts metav1.GetOptions) (*clusterv3.ClusterAuthToken, error) {
@@ -130,6 +132,40 @@ func (f *fakeClusterAuthTokenClient) Get(namespace, name string, opts metav1.Get
 
 func (f *fakeClusterAuthTokenClient) Update(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 	return f.UpdateFunc(obj)
+}
+
+func (f *fakeClusterAuthTokenClient) Patch(namespace, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error) {
+	return f.PatchFunc(namespace, name, pt, data, subresources...)
+}
+
+func acceptPatch(namespace, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error) {
+	return &clusterv3.ClusterAuthToken{}, nil
+}
+
+// failUpdate returns an UpdateFunc that fails the test, for paths that must not update the token.
+func failUpdate(t *testing.T) func(*clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+	return func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+		t.Errorf("unexpected update of clusterAuthToken %s", obj.Name)
+		return obj, nil
+	}
+}
+
+// lastUsedAtPatch checks that a patch is a merge patch of the test token's lastUsedAt alone and
+// returns the patched value.
+func lastUsedAtPatch(t *testing.T, namespace, name string, pt k8stypes.PatchType, data []byte) time.Time {
+	t.Helper()
+	assert.Equal(t, testNamespace, namespace)
+	assert.Equal(t, testAccessKey, name)
+	assert.Equal(t, k8stypes.MergePatchType, pt)
+
+	var fields map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(data, &fields))
+	require.Len(t, fields, 1, "patch %s", data)
+	require.Contains(t, fields, "lastUsedAt")
+
+	var lastUsedAt metav1.Time
+	require.NoError(t, json.Unmarshal(fields["lastUsedAt"], &lastUsedAt))
+	return lastUsedAt.Time
 }
 
 type fakeClusterUserAttributeClient struct {
@@ -461,12 +497,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return secret, nil
 					},
 				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return obj, nil
-					},
-				},
+				configMapLister:   noRefreshConfigMap(),
+				clusterAuthTokens: &fakeClusterAuthTokenClient{PatchFunc: acceptPatch},
 			}
 
 			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
@@ -689,6 +721,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 						updatedToken = obj.DeepCopy()
 						return obj, nil
 					},
+					PatchFunc: acceptPatch,
 				},
 				configMapLister: noRefreshConfigMap(),
 			}
@@ -753,6 +786,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
 						return obj, nil
 					},
+					PatchFunc: acceptPatch,
 				},
 				configMapLister: noRefreshConfigMap(),
 			}
@@ -883,11 +917,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return &corev1.ConfigMap{Data: map[string]string{"value": "3600"}}, nil
 					},
 				},
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return obj, nil
-					},
-				},
+				clusterAuthTokens: &fakeClusterAuthTokenClient{PatchFunc: acceptPatch},
 				clusterUserAttributes: &fakeClusterUserAttributeClient{
 					UpdateFunc: func(obj *clusterv3.ClusterUserAttribute) (*clusterv3.ClusterUserAttribute, error) {
 						userUpdated = true
@@ -933,11 +963,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return &corev1.ConfigMap{Data: map[string]string{"value": "3600"}}, nil
 					},
 				},
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return obj, nil
-					},
-				},
+				clusterAuthTokens: &fakeClusterAuthTokenClient{PatchFunc: acceptPatch},
 			}
 
 			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
@@ -971,12 +997,8 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return newTestSecret(), nil
 					},
 				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return obj, nil
-					},
-				},
+				configMapLister:   noRefreshConfigMap(),
+				clusterAuthTokens: &fakeClusterAuthTokenClient{PatchFunc: acceptPatch},
 			}
 
 			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
@@ -1057,11 +1079,7 @@ func TestGetAndVerifyUser(t *testing.T) {
 						return nil, fmt.Errorf("update failed")
 					},
 				},
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return obj, nil
-					},
-				},
+				clusterAuthTokens: &fakeClusterAuthTokenClient{PatchFunc: acceptPatch},
 			}
 
 			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
@@ -1070,165 +1088,134 @@ func TestGetAndVerifyUser(t *testing.T) {
 		})
 	})
 
+	newAuthenticator := func(t *testing.T, token *clusterv3.ClusterAuthToken, patch func(namespace, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error)) *Authenticator {
+		return &Authenticator{
+			namespace: testNamespace,
+			clusterAuthTokensCache: &fakeClusterAuthTokenCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
+			clusterUserAttributesCache: &fakeClusterUserAttributeCache{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
+					return newTestUser("admins"), nil
+				},
+			},
+			secretLister: &fakeSecretLister{
+				GetFunc: func(name string) (*corev1.Secret, error) {
+					return newTestSecret(), nil
+				},
+			},
+			configMapLister: noRefreshConfigMap(),
+			clusterAuthTokens: &fakeClusterAuthTokenClient{
+				UpdateFunc: failUpdate(t),
+				PatchFunc:  patch,
+			},
+		}
+	}
+
 	t.Run("last used at updated on first use", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
-			token := newTestToken()
-			var lastUsedAtSet bool
+			var patched []time.Time
+			h := newAuthenticator(t, newTestToken(), func(ns, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error) {
+				patched = append(patched, lastUsedAtPatch(t, ns, name, pt, data))
+				return &clusterv3.ClusterAuthToken{}, nil
+			})
 
-			h := &Authenticator{
-				namespace: testNamespace,
-				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser(), nil
-					},
-				},
-				secretLister: &fakeSecretLister{
-					GetFunc: func(name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						lastUsedAtSet = true
-						require.NotNil(t, obj.LastUsedAt)
-						return obj, nil
-					},
-				},
-			}
-
+			now := time.Now()
 			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
-			assert.True(t, lastUsedAtSet)
+			require.Len(t, patched, 1)
+			assert.True(t, patched[0].Equal(now.Truncate(time.Second)), "lastUsedAt %s", patched[0])
 		})
 	})
 
-	t.Run("last used at throttled within same second", func(t *testing.T) {
+	t.Run("last used at less than a minute from now is not updated", func(t *testing.T) {
 		t.Parallel()
 
-		synctest.Test(t, func(t *testing.T) {
-			now := time.Now().Truncate(time.Second)
-			lastUsedAt := metav1.NewTime(now)
-			token := newTestToken()
-			token.LastUsedAt = &lastUsedAt
+		for _, tt := range []struct {
+			name   string
+			offset time.Duration
+		}{
+			{name: "now", offset: 0},
+			{name: "59s ago", offset: -59 * time.Second},
+			{name: "59s ahead", offset: 59 * time.Second},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-			var tokenUpdateCalled bool
+				synctest.Test(t, func(t *testing.T) {
+					time.Sleep(500 * time.Millisecond)
+					lastUsedAt := metav1.NewTime(time.Now().Truncate(time.Second).Add(tt.offset))
+					token := newTestToken()
+					token.LastUsedAt = &lastUsedAt
 
-			h := &Authenticator{
-				namespace: testNamespace,
-				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser(), nil
-					},
-				},
-				secretLister: &fakeSecretLister{
-					GetFunc: func(name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						tokenUpdateCalled = true
-						return obj, nil
-					},
-				},
-			}
+					h := newAuthenticator(t, token, func(ns, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error) {
+						t.Errorf("unexpected patch %s", data)
+						return &clusterv3.ClusterAuthToken{}, nil
+					})
 
-			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
-			require.NoError(t, err)
-			assert.False(t, tokenUpdateCalled)
-		})
+					_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
+					require.NoError(t, err)
+				})
+			})
+		}
 	})
 
-	t.Run("last used at updated after time passes", func(t *testing.T) {
+	t.Run("past and future last used at are updated", func(t *testing.T) {
 		t.Parallel()
 
-		synctest.Test(t, func(t *testing.T) {
-			past := time.Now().Add(-2 * time.Second).Truncate(time.Second)
-			lastUsedAt := metav1.NewTime(past)
-			token := newTestToken()
-			token.LastUsedAt = &lastUsedAt
+		for _, tt := range []struct {
+			name   string
+			stored func(now time.Time) time.Time
+		}{
+			{name: "1m ago", stored: func(now time.Time) time.Time { return now.Add(-time.Minute) }},
+			{name: "1m ago with a fraction", stored: func(now time.Time) time.Time { return now.Add(-time.Minute + 500*time.Millisecond) }},
+			{name: "1m ahead", stored: func(now time.Time) time.Time { return now.Add(time.Minute) }},
+			{name: "year 9999", stored: func(time.Time) time.Time { return time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC) }},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-			var tokenUpdateCalled bool
+				synctest.Test(t, func(t *testing.T) {
+					// A fraction of a second, so that an untruncated now leaves 1m ahead less
+					// than a minute away.
+					time.Sleep(500 * time.Millisecond)
+					now := time.Now().Truncate(time.Second)
+					lastUsedAt := metav1.NewTime(tt.stored(now))
+					token := newTestToken()
+					token.LastUsedAt = &lastUsedAt
 
-			h := &Authenticator{
-				namespace: testNamespace,
-				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser(), nil
-					},
-				},
-				secretLister: &fakeSecretLister{
-					GetFunc: func(name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						tokenUpdateCalled = true
-						return obj, nil
-					},
-				},
-			}
+					var patched []time.Time
+					h := newAuthenticator(t, token, func(ns, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error) {
+						patched = append(patched, lastUsedAtPatch(t, ns, name, pt, data))
+						return &clusterv3.ClusterAuthToken{}, nil
+					})
 
-			_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
-			require.NoError(t, err)
-			assert.True(t, tokenUpdateCalled)
-		})
+					_, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
+					require.NoError(t, err)
+					require.Len(t, patched, 1)
+					assert.True(t, patched[0].Equal(now), "lastUsedAt %s", patched[0])
+				})
+			})
+		}
 	})
 
 	t.Run("last used at update failure is silent", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
-			token := newTestToken()
-
-			h := &Authenticator{
-				namespace: testNamespace,
-				clusterAuthTokensCache: &fakeClusterAuthTokenCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributesCache: &fakeClusterUserAttributeCache{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser("admins"), nil
-					},
-				},
-				secretLister: &fakeSecretLister{
-					GetFunc: func(name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &fakeClusterAuthTokenClient{
-					UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return nil, fmt.Errorf("transient error")
-					},
-				},
-			}
+			var patches int
+			h := newAuthenticator(t, newTestToken(), func(ns, name string, pt k8stypes.PatchType, data []byte, subresources ...string) (*clusterv3.ClusterAuthToken, error) {
+				patches++
+				return nil, fmt.Errorf("transient error")
+			})
 
 			result, err := h.v1getAndVerifyUser(t.Context(), testAccessKey, testSecretKey)
 			require.NoError(t, err)
+			assert.Equal(t, 1, patches)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.Equal(t, []string{"admins"}, result.Groups)
 		})
@@ -1260,12 +1247,8 @@ func TestAuthenticate(t *testing.T) {
 							return newTestSecret(), nil
 						},
 					},
-					configMapLister: noRefreshConfigMap(),
-					clusterAuthTokens: &fakeClusterAuthTokenClient{
-						UpdateFunc: func(obj *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-							return obj, nil
-						},
-					},
+					configMapLister:   noRefreshConfigMap(),
+					clusterAuthTokens: &fakeClusterAuthTokenClient{PatchFunc: acceptPatch},
 				}
 
 				w := httptest.NewRecorder()

@@ -20,6 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/retry"
@@ -285,23 +286,36 @@ func (a *Authenticator) migrateHash(ctx context.Context, accessKey string) (*clu
 	return migrated, err
 }
 
-// touchLastUsedAt bumps ClusterAuthToken.LastUsedAt to now, at most once per
-// second, on a defensive copy of the cached object. Update errors are logged
-// and swallowed since a stale LastUsedAt should not fail authentication.
-func (a *Authenticator) touchLastUsedAt(now time.Time, token *clusterv3.ClusterAuthToken) {
-	const precision = time.Second
-	now = now.Truncate(precision)
+// lastUsedAtInterval is the minimum time between writes of a token's lastUsedAt. It bounds the
+// datastore writes made on authentication; the readers of lastUsedAt need minute precision.
+const lastUsedAtInterval = time.Minute
 
-	if token.LastUsedAt != nil && now.Equal(token.LastUsedAt.Truncate(precision)) {
+// touchLastUsedAt sets ClusterAuthToken.LastUsedAt to now, truncated to the second, when it is
+// unset or at least lastUsedAtInterval away from now. It patches only that field. Patch errors
+// are logged and swallowed since a stale LastUsedAt should not fail authentication.
+func (a *Authenticator) touchLastUsedAt(now time.Time, token *clusterv3.ClusterAuthToken) {
+	now = now.Truncate(time.Second)
+
+	if token.LastUsedAt != nil {
+		// Skip the write when the stored value is less than the interval from now in either
+		// direction, so replicas whose clocks differ slightly don't overwrite each other on every
+		// request. The range check avoids time.Sub, which saturates for values far in the future.
+		stored := token.LastUsedAt.Truncate(time.Second)
+		if stored.After(now.Add(-lastUsedAtInterval)) && stored.Before(now.Add(lastUsedAtInterval)) {
+			return
+		}
+	}
+
+	data, err := json.Marshal(struct {
+		LastUsedAt metav1.Time `json:"lastUsedAt"`
+	}{metav1.NewTime(now)})
+	if err != nil {
+		log.Errorf("error updating clusterAuthToken %s: %s", token.Name, err)
 		return
 	}
 
-	updated := token.DeepCopy()
-	lastUsedAt := metav1.NewTime(now)
-	updated.LastUsedAt = &lastUsedAt
-
-	if _, err := a.clusterAuthTokens.Update(updated); err != nil {
-		log.Errorf("error updating clusterAuthToken %s: %s", updated.Name, err)
+	if _, err := a.clusterAuthTokens.Patch(a.namespace, token.Name, k8stypes.MergePatchType, data); err != nil {
+		log.Errorf("error updating clusterAuthToken %s: %s", token.Name, err)
 	}
 }
 

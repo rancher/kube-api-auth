@@ -32,9 +32,10 @@ resources and returning the user/groups the apiserver should trust.
    stored hash (SHA3-512 by default; scrypt and SHA-256 formats accepted
    for existing tokens).
 4. On success it resolves the `ClusterUserAttribute` for the token's
-   user, updates `LastUsedAt` (at most once per second), and — when the
-   `auth-provider-refresh-debounce-seconds` ConfigMap value is set —
-   marks the user for a refresh if `LastRefresh` is overdue.
+   user, updates `LastUsedAt` (when it is unset or a minute or more
+   from now), and — when the `auth-provider-refresh-debounce-seconds`
+   ConfigMap value is set — marks the user for a refresh if
+   `LastRefresh` is overdue.
 5. It returns a `TokenReview` response with `authenticated: true`, the
    `username`, and the user's `groups`.
 
