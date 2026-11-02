@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=registry.suse.com/bci/bci-micro:15.7
+ARG BASE_IMAGE=registry.suse.com/bci/bci-micro:16.0
 ARG BASE_DIGEST
 
 FROM ${BASE_IMAGE}${BASE_DIGEST:+@${BASE_DIGEST}}
