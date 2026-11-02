@@ -918,165 +918,133 @@ func TestGetAndVerifyUser(t *testing.T) {
 		})
 	})
 
+	newHandlers := func(token *clusterv3.ClusterAuthToken, update func(*clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error)) *KubeAPIHandlers {
+		return &KubeAPIHandlers{
+			namespace: testNamespace,
+			clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
+					return token, nil
+				},
+			},
+			clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
+				GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
+					return newTestUser("admins"), nil
+				},
+			},
+			secretLister: &corefakes.SecretListerMock{
+				GetFunc: func(ns, name string) (*corev1.Secret, error) {
+					return newTestSecret(), nil
+				},
+			},
+			configMapLister:   noRefreshConfigMap(),
+			clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{UpdateFunc: update},
+		}
+	}
+
 	t.Run("last used at updated on first use", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
-			token := newTestToken()
-			var lastUsedAtSet bool
+			var updated []*clusterv3.ClusterAuthToken
+			h := newHandlers(newTestToken(), func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+				updated = append(updated, in1)
+				return in1, nil
+			})
 
-			h := &KubeAPIHandlers{
-				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser(), nil
-					},
-				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						lastUsedAtSet = true
-						require.NotNil(t, in1.LastUsedAt)
-						return in1, nil
-					},
-				},
-			}
-
+			now := time.Now()
 			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 			require.NoError(t, err)
-			assert.True(t, lastUsedAtSet)
+			require.Len(t, updated, 1)
+			require.NotNil(t, updated[0].LastUsedAt)
+			assert.True(t, updated[0].LastUsedAt.Time.Equal(now.Truncate(time.Second)), "lastUsedAt %s", updated[0].LastUsedAt)
 		})
 	})
 
-	t.Run("last used at throttled within same second", func(t *testing.T) {
+	t.Run("last used at less than a minute from now is not updated", func(t *testing.T) {
 		t.Parallel()
 
-		synctest.Test(t, func(t *testing.T) {
-			now := time.Now().Truncate(time.Second)
-			lastUsedAt := metav1.NewTime(now)
-			token := newTestToken()
-			token.LastUsedAt = &lastUsedAt
+		for _, tt := range []struct {
+			name   string
+			offset time.Duration
+		}{
+			{name: "now", offset: 0},
+			{name: "59s ago", offset: -59 * time.Second},
+			{name: "59s ahead", offset: 59 * time.Second},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-			var tokenUpdateCalled bool
+				synctest.Test(t, func(t *testing.T) {
+					time.Sleep(500 * time.Millisecond)
+					lastUsedAt := metav1.NewTime(time.Now().Truncate(time.Second).Add(tt.offset))
+					token := newTestToken()
+					token.LastUsedAt = &lastUsedAt
 
-			h := &KubeAPIHandlers{
-				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser(), nil
-					},
-				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						tokenUpdateCalled = true
+					h := newHandlers(token, func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						t.Errorf("unexpected update of clusterAuthToken %s with lastUsedAt %s", in1.Name, in1.LastUsedAt)
 						return in1, nil
-					},
-				},
-			}
+					})
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
-			require.NoError(t, err)
-			assert.False(t, tokenUpdateCalled)
-		})
+					_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+					require.NoError(t, err)
+				})
+			})
+		}
 	})
 
-	t.Run("last used at updated after time passes", func(t *testing.T) {
+	t.Run("past and future last used at are updated", func(t *testing.T) {
 		t.Parallel()
 
-		synctest.Test(t, func(t *testing.T) {
-			past := time.Now().Add(-2 * time.Second).Truncate(time.Second)
-			lastUsedAt := metav1.NewTime(past)
-			token := newTestToken()
-			token.LastUsedAt = &lastUsedAt
+		for _, tt := range []struct {
+			name   string
+			stored func(now time.Time) time.Time
+		}{
+			{name: "1m ago", stored: func(now time.Time) time.Time { return now.Add(-time.Minute) }},
+			{name: "1m ago with a fraction", stored: func(now time.Time) time.Time { return now.Add(-time.Minute + 500*time.Millisecond) }},
+			{name: "1m ahead", stored: func(now time.Time) time.Time { return now.Add(time.Minute) }},
+			{name: "year 9999", stored: func(time.Time) time.Time { return time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC) }},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-			var tokenUpdateCalled bool
+				synctest.Test(t, func(t *testing.T) {
+					// A fraction of a second, so that an untruncated now leaves 1m ahead less
+					// than a minute away.
+					time.Sleep(500 * time.Millisecond)
+					now := time.Now().Truncate(time.Second)
+					lastUsedAt := metav1.NewTime(tt.stored(now))
+					token := newTestToken()
+					token.LastUsedAt = &lastUsedAt
 
-			h := &KubeAPIHandlers{
-				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser(), nil
-					},
-				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						tokenUpdateCalled = true
+					var updated []*clusterv3.ClusterAuthToken
+					h := newHandlers(token, func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+						updated = append(updated, in1)
 						return in1, nil
-					},
-				},
-			}
+					})
 
-			_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
-			require.NoError(t, err)
-			assert.True(t, tokenUpdateCalled)
-		})
+					_, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
+					require.NoError(t, err)
+					require.Len(t, updated, 1)
+					require.NotNil(t, updated[0].LastUsedAt)
+					assert.True(t, updated[0].LastUsedAt.Time.Equal(now), "lastUsedAt %s", updated[0].LastUsedAt)
+				})
+			})
+		}
 	})
 
 	t.Run("last used at update failure is silent", func(t *testing.T) {
 		t.Parallel()
 
 		synctest.Test(t, func(t *testing.T) {
-			token := newTestToken()
-
-			h := &KubeAPIHandlers{
-				namespace: testNamespace,
-				clusterAuthTokensLister: &clusterfakes.ClusterAuthTokenListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterAuthToken, error) {
-						return token, nil
-					},
-				},
-				clusterUserAttributeLister: &clusterfakes.ClusterUserAttributeListerMock{
-					GetFunc: func(ns, name string) (*clusterv3.ClusterUserAttribute, error) {
-						return newTestUser("admins"), nil
-					},
-				},
-				secretLister: &corefakes.SecretListerMock{
-					GetFunc: func(ns, name string) (*corev1.Secret, error) {
-						return newTestSecret(), nil
-					},
-				},
-				configMapLister: noRefreshConfigMap(),
-				clusterAuthTokens: &clusterfakes.ClusterAuthTokenInterfaceMock{
-					UpdateFunc: func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
-						return nil, fmt.Errorf("transient error")
-					},
-				},
-			}
+			var updates int
+			h := newHandlers(newTestToken(), func(in1 *clusterv3.ClusterAuthToken) (*clusterv3.ClusterAuthToken, error) {
+				updates++
+				return nil, fmt.Errorf("transient error")
+			})
 
 			result, err := h.v1getAndVerifyUser(testAccessKey, testSecretKey)
 			require.NoError(t, err)
+			assert.Equal(t, 1, updates)
 			assert.Equal(t, testUserName, result.UserName)
 			assert.Equal(t, []string{"admins"}, result.Groups)
 		})
