@@ -12,7 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOLANG_CI_LINT_VERSION: v2.14.0
   IMAGE: rancher/kube-api-auth
 
 permissions:
@@ -21,56 +20,53 @@ permissions:
 jobs:
   linter:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rancher/ci-image/go1.27:1.27.3
     steps:
     - name: Get Sources
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
 
-    - name: Set up Go
-      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+    - name: Cache Go modules and build cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        go-version-file: 'go.mod'
-        cache: false
-
-    # https://github.com/golang/go/issues/75031
-    # Derive from the toolchain setup-go just installed from go.mod, so this never drifts
-    # out of sync with the go directive and Renovate has no hardcoded version to bump.
-    - name: Set toolchain version
-      run: go env -w GOTOOLCHAIN=$(go env GOVERSION)+auto
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go--${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go--
+          ${{ runner.os }}-go-
 
     - name: Validate the sources
       run: |
         ./scripts/validate
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-      with:
-        version: ${{ env.GOLANG_CI_LINT_VERSION }}
+    - name: Lint the sources
+      run: |
+        ./scripts/lint
 
     - name: Test
       run: ./scripts/test
 
   rancher-sync:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rancher/ci-image/go1.27:1.27.3
     steps:
     - name: Get Sources
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
 
-    - name: Set up Go
-      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-      with:
-        go-version-file: 'go.mod'
-        cache: true
-        cache-dependency-path: scripts/rancher-sync.json
-
     - name: Check drift against rancher/rancher
       run: ./scripts/check-rancher-sync
 
   build:
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rancher/ci-image/go1.27:1.27.3
     needs:
       - linter
     strategy:
@@ -100,18 +96,23 @@ jobs:
       with:
         persist-credentials: false
 
+    - name: Cache Go modules and build cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.arch }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.arch }}-
+          ${{ runner.os }}-go-
+
     - name: Determine Tag
       id: get-TAG
       run: |
         TAG=$(git describe --always)
         echo "TAG=$TAG"
         echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
-
-    - name: Set up Go
-      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-      with:
-        go-version-file: 'go.mod'
-        cache: false
 
     - name: Build
       env:
