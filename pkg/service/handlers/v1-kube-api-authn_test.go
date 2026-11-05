@@ -1027,6 +1027,11 @@ func TestGetAndVerifyUser(t *testing.T) {
 					require.Len(t, updated, 1)
 					require.NotNil(t, updated[0].LastUsedAt)
 					assert.True(t, updated[0].LastUsedAt.Time.Equal(now), "lastUsedAt %s", updated[0].LastUsedAt)
+
+					// The cached token is left unchanged.
+					assert.NotSame(t, token, updated[0])
+					assert.Same(t, &lastUsedAt, token.LastUsedAt)
+					assert.True(t, token.LastUsedAt.Time.Equal(tt.stored(now)), "cached lastUsedAt %s", token.LastUsedAt)
 				})
 			})
 		}
