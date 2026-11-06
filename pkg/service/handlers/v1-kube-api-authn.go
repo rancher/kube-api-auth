@@ -20,6 +20,10 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// lastUsedAtInterval is the minimum time between writes of a token's lastUsedAt. It bounds the
+// datastore writes made on authentication; the readers of lastUsedAt need minute precision.
+const lastUsedAtInterval = time.Minute
+
 func (h *KubeAPIHandlers) V1AuthenticateHandler() http.HandlerFunc {
 	return h.v1Authenticate
 }
@@ -220,12 +224,14 @@ func (h *KubeAPIHandlers) v1getAndVerifyUser(accessKey, secretKey string) (*type
 	}
 
 	func() { // Using an anonymous function with an early return here to simplify the logic.
-		precision := time.Second
-		now = now.Truncate(precision)
+		now = now.Truncate(time.Second)
 
 		if clusterAuthToken.LastUsedAt != nil {
-			if now.Equal(clusterAuthToken.LastUsedAt.Truncate(precision)) {
-				// Throttle subsecond updates.
+			// Skip the write when the stored value is less than the interval from now in either
+			// direction, so replicas whose clocks differ slightly don't overwrite each other on every
+			// request. The range check avoids time.Sub, which saturates for values far in the future.
+			stored := clusterAuthToken.LastUsedAt.Truncate(time.Second)
+			if stored.After(now.Add(-lastUsedAtInterval)) && stored.Before(now.Add(lastUsedAtInterval)) {
 				return
 			}
 		}
