@@ -19,7 +19,7 @@ Keep the table well-formed: one row per branch, columns in the order shown.
 
 | Branch              | Minor   | Rancher Versions     | Status |
 |---------------------|---------|----------------------|--------|
-| main                | v0.16   | v2.16                | active |
+| main                | v0.16   | v2.16, v2.17         | active |
 | release/v0.15       | v0.15   | v2.15                | active |
 | release/v0.13       | v0.13   | v2.13, v2.14         | active |
 | release/v0.10       | v0.10   | v2.10, v2.11, v2.12  | active |
