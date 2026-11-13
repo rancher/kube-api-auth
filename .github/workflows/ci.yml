@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOLANG_CI_LINT_VERSION: v2.8.0
+  GOLANG_CI_LINT_VERSION: v2.9.0
   IMAGE: rancher/kube-api-auth
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
 
     # https://github.com/golang/go/issues/75031
     - name: Set toolchain version
-      run: go env -w GOTOOLCHAIN=go1.25.4+auto
+      run: go env -w GOTOOLCHAIN=go1.26.11+auto
 
     - name: Install golangci-lint
       uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0

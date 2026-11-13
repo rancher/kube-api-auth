@@ -1,8 +1,6 @@
 module github.com/rancher/kube-api-auth
 
-go 1.25.0
-
-toolchain go1.25.11
+go 1.26.0
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
