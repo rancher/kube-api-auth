@@ -18,7 +18,7 @@ jobs:
       id-token: write # this is important, it's how we authenticate with Vault
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/rancher/ci-image/go1.26:1.26.10
+      image: ghcr.io/rancher/ci-image/go1.26:1.26.11
     strategy:
       fail-fast: false
       matrix:
