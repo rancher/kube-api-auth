@@ -11,8 +11,8 @@ replace (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.46.0
-	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.46.0
-	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.46.0
+	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.47.0
 	go.opentelemetry.io/proto/otlp => go.opentelemetry.io/proto/otlp v1.8.0
 	helm.sh/helm/v3 => github.com/rancher/helm/v3 v3.19.0-rancher1
 
@@ -168,8 +168,8 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
-	go.opentelemetry.io/otel v1.46.0 // indirect
-	go.opentelemetry.io/otel/trace v1.46.0 // indirect
+	go.opentelemetry.io/otel v1.47.0 // indirect
+	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
