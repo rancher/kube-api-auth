@@ -41,7 +41,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.34.9
 	k8s.io/kubectl => k8s.io/kubectl v0.34.9
 	k8s.io/kubelet => k8s.io/kubelet v0.34.9
-	k8s.io/kubernetes => k8s.io/kubernetes v1.35.10
+	k8s.io/kubernetes => k8s.io/kubernetes v1.34.9
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.34.9
 	k8s.io/metrics => k8s.io/metrics v0.34.9
 	k8s.io/mount-utils => k8s.io/mount-utils v0.34.9
@@ -159,7 +159,6 @@ require (
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20250930163923-f2c9e60b1078 // indirect
 	github.com/rancher/wrangler/v3 v3.3.5 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
-	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
