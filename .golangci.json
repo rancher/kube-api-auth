@@ -1,17 +1,17 @@
 {
-    "linters": {
-        "disable-all": true,
-        "enable": [
-           "govet",
-           "revive",
-           "goimports",
-           "misspell",
-           "ineffassign",
-           "gofmt",
-           "staticcheck"
-        ]
-    },
-    "run": {
-        "timeout": "15m"
-    }
+  "formatters": {
+    "enable": [
+      "gofmt"
+    ]
+  },
+  "linters": {
+    "default": "none",
+    "enable": [
+      "govet",
+      "ineffassign",
+      "staticcheck",
+      "unused"
+    ]
+  },
+  "version": "2"
 }
