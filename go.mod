@@ -3,6 +3,8 @@ module github.com/rancher/kube-api-auth
 go 1.27.4
 
 replace (
+	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.47.0
 	k8s.io/api => k8s.io/api v0.37.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.37.2
 	k8s.io/client-go => k8s.io/client-go v0.37.2
