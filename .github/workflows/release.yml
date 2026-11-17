@@ -211,7 +211,7 @@ jobs:
           set -euo pipefail
 
           case "${GITHUB_REF_NAME}" in
-            v0.16.*) rancher_refs="main" ;;
+            v0.16.*) rancher_refs="main release/v2.16" ;;
             v0.15.*) rancher_refs="release/v2.15" ;;
             v0.13.*) rancher_refs="release/v2.14 release/v2.13" ;;
             v0.10.*) rancher_refs="release/v2.12 release/v2.11" ;;
