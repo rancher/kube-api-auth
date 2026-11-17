@@ -41,7 +41,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.34.9
 	k8s.io/kubectl => k8s.io/kubectl v0.34.9
 	k8s.io/kubelet => k8s.io/kubelet v0.34.9
-	k8s.io/kubernetes => k8s.io/kubernetes v1.34.9
+	k8s.io/kubernetes => k8s.io/kubernetes v1.35.10
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.34.9
 	k8s.io/metrics => k8s.io/metrics v0.34.9
 	k8s.io/mount-utils => k8s.io/mount-utils v0.34.9
@@ -159,6 +159,7 @@ require (
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20250930163923-f2c9e60b1078 // indirect
 	github.com/rancher/wrangler/v3 v3.3.5 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
@@ -170,7 +171,7 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
-	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/crypto/openpgp v0.1.0-deprecated // indirect
@@ -185,8 +186,8 @@ require (
 	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260724162435-b2f20204f0df // indirect
 	google.golang.org/grpc v1.83.2 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
+	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -200,7 +201,7 @@ require (
 	k8s.io/helm v2.17.0+incompatible // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-aggregator v0.34.9 // indirect
-	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
+	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	k8s.io/kubectl v0.34.9 // indirect
 	k8s.io/kubernetes v1.34.9 // indirect
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
