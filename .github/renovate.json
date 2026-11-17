@@ -7,6 +7,7 @@
     "main",
     "release/v0.15",
     "release/v0.13",
+    "release/v0.12",
     "release/v0.10"
   ],
   "packageRules": [
@@ -23,6 +24,11 @@
       "description": "Rancher 2.14 update constraints apply to v0.13, supporting 2.13 and 2.14.",
       "matchBaseBranches": [ "release/v0.13" ],
       "extends":           [ "github>rancher/renovate-config//rancher-2.14#release" ]
+    },
+    {
+      "description": "Rancher 2.12 update constraints apply to v0.12.",
+      "matchBaseBranches": [ "release/v0.12" ],
+      "extends":           [ "github>rancher/renovate-config//rancher-2.12#release" ]
     },
     {
       "description": "Rancher 2.12 update constraints apply to v0.10, supporting 2.11 and 2.12.",
