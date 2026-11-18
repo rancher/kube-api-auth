@@ -53,3 +53,4 @@ jobs:
       # Vault/App token generation is unavailable. Defaulting to '' allows the caller
       # to fall back gracefully on standard runs without failing secret evaluation.
       override-token: "${{ secrets.RENOVATE_FORK_GH_TOKEN || '' }}"
+
