@@ -145,13 +145,19 @@ change lands. Maintenance lines live on `release/v0.<MIN>` branches.
 See [VERSION.md](VERSION.md) for the branch ↔ minor ↔ Rancher mapping
 and the full scheme.
 
-## Contact
+## Feedback
 
-For bugs, questions, corrections, suggestions: open an issue in
-`rancher/rancher` with a title starting with `[kube-api-auth]`.
+We are not accepting code contributions at the moment. A clear issue helps
+most: open one in [rancher/rancher](https://github.com/rancher/rancher/issues)
+with a title starting with `[kube-api-auth] `, or
+[click here](https://github.com/rancher/rancher/issues/new?title=%5Bkube-api-auth%5D%20),
+and read [CONTRIBUTING.md](CONTRIBUTING.md) for what to include.
 
-Or [click here](//github.com/rancher/rancher/issues/new?title=%5Bkube-api-auth%5D%20)
-to create a new issue.
+Questions and discussion: the [Rancher forums](https://forums.rancher.com/)
+and [Rancher Slack](https://slack.rancher.io/).
+
+Report security issues as described in the
+[Rancher security policy](https://github.com/rancher/rancher/security/policy).
 
 ## License
 
