@@ -9,7 +9,7 @@ replace (
 	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20260827224206-8c257d748d23
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
-	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.46.0
+	go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/metric => go.opentelemetry.io/otel/metric v1.46.0
 	go.opentelemetry.io/otel/sdk => go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.47.0
@@ -182,6 +182,7 @@ require (
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.45.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.45.0 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
